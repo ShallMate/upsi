@@ -93,9 +93,12 @@ void RunRR22() {
 }
 
 void RunUPSI() {
-  const uint64_t num = 1 << 18;
-  const uint64_t addnum = 1 << 2;
-  const uint64_t subnum = 1 << 2;
+  const uint64_t num = 1 << 20;
+  const uint64_t addnum = 1 << 8;
+  const uint64_t subnum = 1 << 8;
+  SPDLOG_INFO("|X| = |Y|: {}", num);
+  SPDLOG_INFO("|X^+| = |Y^+|: {}", addnum);
+  SPDLOG_INFO("|X^-| = |Y^-|: {}", subnum);
   size_t bin_size = num;
   size_t weight = 3;
   size_t ssp = 40;
@@ -115,7 +118,16 @@ void RunUPSI() {
   std::vector<uint128_t> Yadd = CreateRangeItems(0, addnum);
   std::vector<uint128_t> Xsub = CreateRangeItems(num - subnum, subnum);
   std::vector<uint128_t> Ysub = CreateRangeItems(num - subnum, subnum);
-
+  auto start_time = std::chrono::high_resolution_clock::now();
+  EcdhReceiver yaddreceiver;
+  EcdhSender yaddsender;
+  yaddsender.UpdatePRFs(absl::MakeSpan(X));
+  EcdhReceiver xaddreceiver;
+  EcdhSender xaddsender;
+  xaddsender.UpdatePRFs(absl::MakeSpan(Y));
+  auto end_time = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> duration = end_time - start_time;
+  std::cout << "Setup time: " << duration.count() << " seconds" << std::endl;
   auto lctxs = yacl::link::test::SetupWorld(2);  // setup network
   auto start_time_base = std::chrono::high_resolution_clock::now();
   std::future<std::vector<uint128_t>> rr22_sender = std::async(
@@ -162,16 +174,7 @@ void RunUPSI() {
   size_t c2 = sender_stats->recv_bytes.load();
   size_t c3 = receiver_stats->sent_bytes.load();
   size_t c4 = receiver_stats->recv_bytes.load();
-  auto start_time = std::chrono::high_resolution_clock::now();
-  EcdhReceiver yaddreceiver;
-  EcdhSender yaddsender;
-  yaddsender.UpdatePRFs(absl::MakeSpan(X));
-  EcdhReceiver xaddreceiver;
-  EcdhSender xaddsender;
-  xaddsender.UpdatePRFs(absl::MakeSpan(Y));
-  auto end_time = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> duration = end_time - start_time;
-  std::cout << "Setup time: " << duration.count() << " seconds" << std::endl;
+
 
   auto newlctxs = yacl::link::test::SetupWorld(2);  // setup network
   // newlctxs[0]->ResetStats();
