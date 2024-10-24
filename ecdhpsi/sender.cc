@@ -82,6 +82,7 @@ void EcdhSender::UpdatePRFs(absl::Span<uint128_t> in) {
       out[idx] = ec_->SerializePoint(point);
     }
   });
+  std::sort(out.begin(), out.end());
   prfs_.insert(out.begin(), out.end());
 }
 
@@ -95,10 +96,10 @@ void EcdhSender::DeletePRFs(absl::Span<uint128_t> in) {
       out[idx] = ec_->SerializePoint(point);
     }
   });
-  std::set<std::string> result;
-  std::set_difference(prfs_.begin(), prfs_.end(), out.begin(), out.end(),
-                      std::inserter(result, result.end()));
-  prfs_.swap(result);
+  
+  for (const auto& elem : out) {
+        prfs_.erase(elem);  
+  }
 }
 
 void EcdhSender::MaskEcPoints(absl::Span<yc::EcPoint> in,
