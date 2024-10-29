@@ -169,6 +169,8 @@ void RunUPSI() {
   };
 
   auto sender_stats = lctxs[0]->GetStats();
+  lctxs[0]->SetRecvTimeout(600000);
+  lctxs[1]->SetRecvTimeout(600000);
   auto receiver_stats = lctxs[1]->GetStats();
   std::cout << "Base PSI Sender sent bytes: "
             << bytesToMB(sender_stats->sent_bytes.load()) << " MB" << std::endl;
@@ -193,6 +195,8 @@ void RunUPSI() {
   auto newlctxs = yacl::link::test::SetupWorld(2);  // setup network
   // newlctxs[0]->ResetStats();
   // newlctxs[1]->ResetStats();
+  newlctxs[0]->SetRecvTimeout(600000);
+  newlctxs[1]->SetRecvTimeout(600000);
   auto start_time1 = std::chrono::high_resolution_clock::now();
   std::future<std::vector<uint128_t>> upsisender =
       std::async(std::launch::async, [&] {

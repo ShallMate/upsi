@@ -25,9 +25,9 @@
 #include "yacl/math/f2k/f2k.h"
 #include "yacl/utils/serialize.h"
 
-// reference: https://eprint.iacr.org/2019/1234.pdf (Figure 2)
-constexpr float kZeta{0.06F};     // 冗余率
-constexpr size_t kBinSize{64UL};  // m+1 桶中的元素个数
+
+constexpr float kZeta{0.06F};     
+constexpr size_t kBinSize{64UL};  
 constexpr uint128_t kBot{0};
 constexpr size_t kNumBinsPerBatch{16UL};
 constexpr size_t kBatchSize{kNumBinsPerBatch * kBinSize};

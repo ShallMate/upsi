@@ -28,12 +28,12 @@ inline std::string uint128_to_string(uint128_t value) {
   if (value == 0) {
     return "0";
   }
-  std::array<char, 40> buffer;  // 预分配足够的空间，避免动态分配
-  int pos = 39;                 // 从数组的最后位置开始填充
-  buffer[pos] = '\0';           // Null-terminate for C-string compatibility
+  std::array<char, 40> buffer;  
+  int pos = 39;                
+  buffer[pos] = '\0';           
   while (value > 0) {
-    buffer[--pos] = '0' + static_cast<char>(value % 10);  // 提取当前位
-    value /= 10;                                          // 移动到下一位
+    buffer[--pos] = '0' + static_cast<char>(value % 10);  
+    value /= 10;                                          
   }
   return std::string(&buffer[pos]);
 }

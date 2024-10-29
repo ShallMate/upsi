@@ -80,11 +80,11 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
 
   
   for (const auto& elem : wset) {
-    intersection_receiver.erase(elem);  // diff 是一个大集合，但插入是 O(log n) 的操作
+    intersection_receiver.erase(elem);  
   }
 
   for (const auto& elem : u) {
-    intersection_receiver.insert(elem);  // diff 是一个大集合，但插入是 O(log n) 的操作
+    intersection_receiver.insert(elem);  
   }
   std::vector<uint128_t> psi_result(intersection_receiver.begin(), intersection_receiver.end());
   return psi_result;
@@ -125,14 +125,14 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
   std::vector<uint128_t> w = KrtwPsuRecv(ctx, ysubintersction);
   //cout<<w.size()<<endl;
   std::set<uint128_t> wset(w.begin(), w.end());
-  // 求 I \ W (差集)
+
 
 
   for (const auto& elem : wset) {
-        intersection_sender.erase(elem);  // 直接删除与 wset 匹配的元素
+        intersection_sender.erase(elem);  
   }
   for (const auto& elem : u) {
-    intersection_sender.insert(elem);  // diff 是一个大集合，但插入是 O(log n) 的操作
+    intersection_sender.insert(elem); 
   }
   std::vector<uint128_t> psi_result(intersection_sender.begin(), intersection_sender.end());
   return psi_result;
