@@ -21,14 +21,12 @@
 #include "yacl/link/context.h"
 #include "yacl/secparam.h"
 
-
 YACL_MODULE_DECLARE("psu", SecParam::C::k128, SecParam::S::k40);
 
 uint64_t Evaluate(const std::vector<uint64_t>& coeffs, uint64_t x);
 
 std::vector<uint64_t> Interpolate(const std::vector<uint64_t>& xs,
                                   const std::vector<uint64_t>& ys);
-
 
 std::vector<uint128_t> KrtwPsuSend(
     const std::shared_ptr<yacl::link::Context>& ctx,

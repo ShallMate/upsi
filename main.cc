@@ -158,7 +158,8 @@ void RunUPSI() {
                                           psi_result_sender.end());
   std::set<uint128_t> intersection_receiver(psi_result.begin(),
                                             psi_result.end());
-  std::cout<<"Base PSI intersection size = "<<intersection_receiver.size()<<std::endl;
+  std::cout << "Base PSI intersection size = " << intersection_receiver.size()
+            << std::endl;
   if (intersection_sender == intersection_receiver) {
     std::cout << "The base PSI finish." << std::endl;
   } else {
@@ -190,7 +191,6 @@ void RunUPSI() {
   size_t c2 = sender_stats->recv_bytes.load();
   size_t c3 = receiver_stats->sent_bytes.load();
   size_t c4 = receiver_stats->recv_bytes.load();
-
 
   auto newlctxs = yacl::link::test::SetupWorld(2);  // setup network
   // newlctxs[0]->ResetStats();
@@ -392,6 +392,5 @@ int RunAEcdhPsi() {
 
 int main() {
   RunUPSI();
-  //RunAEcdhPsi();
-  
+  // RunAEcdhPsi();
 }

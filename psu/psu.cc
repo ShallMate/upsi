@@ -25,9 +25,8 @@
 #include "yacl/math/f2k/f2k.h"
 #include "yacl/utils/serialize.h"
 
-
-constexpr float kZeta{0.06F};     
-constexpr size_t kBinSize{64UL};  
+constexpr float kZeta{0.06F};
+constexpr size_t kBinSize{64UL};
 constexpr uint128_t kBot{0};
 constexpr size_t kNumBinsPerBatch{16UL};
 constexpr size_t kBatchSize{kNumBinsPerBatch * kBinSize};

@@ -59,10 +59,10 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
   // cout << "yadd_size = " << yadd_size << endl;
   yaddsender.EcdhPsiSend(ctx, yadd_size);
   std::vector<uint128_t> t = xaddreceiver.EcdhPsiRecv(ctx, xadd);
-  //cout << "t=" << t.size() << endl;
+  // cout << "t=" << t.size() << endl;
 
   std::vector<uint128_t> u = KrtwPsuSend(ctx, t);
-  //cout << "u=" << u.size() << endl;
+  // cout << "u=" << u.size() << endl;
 
   std::set<uint128_t> xsubset(xsub.begin(), xsub.end());
   std::set<uint128_t> xsubsetintersction;
@@ -74,19 +74,18 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
                                          xsubsetintersction.end());
 
   std::vector<uint128_t> w = KrtwPsuSend(ctx, xsubintersction);
-  //cout << "w=" << w.size() << endl;
+  // cout << "w=" << w.size() << endl;
   std::set<uint128_t> wset(w.begin(), w.end());
 
-
-  
   for (const auto& elem : wset) {
-    intersection_receiver.erase(elem);  
+    intersection_receiver.erase(elem);
   }
 
   for (const auto& elem : u) {
-    intersection_receiver.insert(elem);  
+    intersection_receiver.insert(elem);
   }
-  std::vector<uint128_t> psi_result(intersection_receiver.begin(), intersection_receiver.end());
+  std::vector<uint128_t> psi_result(intersection_receiver.begin(),
+                                    intersection_receiver.end());
   return psi_result;
 }
 
@@ -107,11 +106,11 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
   yacl::Buffer size_data_xadd = ctx->Recv(ctx->PrevRank(), "xadd size");
   uint32_t xadd_size = *reinterpret_cast<uint32_t*>(size_data_xadd.data());
   std::vector<uint128_t> v = yaddreceiver.EcdhPsiRecv(ctx, yadd);
-  //cout << "v = " << v.size() << endl;
+  // cout << "v = " << v.size() << endl;
 
   xaddsender.EcdhPsiSend(ctx, xadd_size);
   std::vector<uint128_t> u = KrtwPsuRecv(ctx, v);
-  //cout << "u = " << u.size() << endl;
+  // cout << "u = " << u.size() << endl;
 
   std::set<uint128_t> ysubset(ysub.begin(), ysub.end());
   std::set<uint128_t> ysubsetintersction;
@@ -123,17 +122,16 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
                                          ysubsetintersction.end());
   // cout << ysubintersction.size() << endl;
   std::vector<uint128_t> w = KrtwPsuRecv(ctx, ysubintersction);
-  //cout<<w.size()<<endl;
+  // cout<<w.size()<<endl;
   std::set<uint128_t> wset(w.begin(), w.end());
 
-
-
   for (const auto& elem : wset) {
-        intersection_sender.erase(elem);  
+    intersection_sender.erase(elem);
   }
   for (const auto& elem : u) {
-    intersection_sender.insert(elem); 
+    intersection_sender.insert(elem);
   }
-  std::vector<uint128_t> psi_result(intersection_sender.begin(), intersection_sender.end());
+  std::vector<uint128_t> psi_result(intersection_sender.begin(),
+                                    intersection_sender.end());
   return psi_result;
 }

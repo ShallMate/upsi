@@ -28,12 +28,12 @@ inline std::string uint128_to_string(uint128_t value) {
   if (value == 0) {
     return "0";
   }
-  std::array<char, 40> buffer;  
-  int pos = 39;                
-  buffer[pos] = '\0';           
+  std::array<char, 40> buffer;
+  int pos = 39;
+  buffer[pos] = '\0';
   while (value > 0) {
-    buffer[--pos] = '0' + static_cast<char>(value % 10);  
-    value /= 10;                                          
+    buffer[--pos] = '0' + static_cast<char>(value % 10);
+    value /= 10;
   }
   return std::string(&buffer[pos]);
 }

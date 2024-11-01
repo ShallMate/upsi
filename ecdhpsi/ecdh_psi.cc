@@ -40,8 +40,7 @@ void EcdhPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
   alice.MaskStrings(absl::MakeSpan(x), absl::MakeSpan(x_points));
 
   // Send H(id)^a
-  uint64_t max_point_length =
-      alice.ec_->GetSerializeLength();  
+  uint64_t max_point_length = alice.ec_->GetSerializeLength();
   uint64_t total_length_x = max_point_length * x.size();
 
   std::vector<uint8_t> xbuffer(total_length_x);

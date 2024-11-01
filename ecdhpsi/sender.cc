@@ -96,9 +96,9 @@ void EcdhSender::DeletePRFs(absl::Span<uint128_t> in) {
       out[idx] = ec_->SerializePoint(point);
     }
   });
-  
+
   for (const auto& elem : out) {
-        prfs_.erase(elem);  
+    prfs_.erase(elem);
   }
 }
 
