@@ -78,6 +78,7 @@ std::vector<uint128_t> RR22PsiRecv(
   std::vector<uint128_t> p(okvssize);
   baxos.Solve(absl::MakeSpan(elem_hashes), absl::MakeSpan(elem_hashes),
               absl::MakeSpan(p), nullptr, 8);
+  volereceiver.get();
 
   std::vector<uint128_t> aprime(okvssize);
 
@@ -86,7 +87,6 @@ std::vector<uint128_t> RR22PsiRecv(
       aprime[idx] = a[idx] ^ p[idx];
     }
   });
-  volereceiver.get();
   ctx->SendAsync(
       ctx->NextRank(),
       yacl::ByteContainerView(aprime.data(), aprime.size() * sizeof(uint128_t)),
