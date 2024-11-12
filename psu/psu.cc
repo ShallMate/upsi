@@ -116,42 +116,55 @@ std::vector<uint128_t> KrtwPsuSend(
 
   std::vector<uint128_t> elems;
   elems.reserve(num_ot);
+  std::vector<uint64_t> evals(num_ot);
   size_t oprf_idx = 0;
-  for (auto& bin_idx : hashing) {
-    bin_idx.resize(kBinSize);
-    std::sort(bin_idx.begin(), bin_idx.end());
-    std::vector<uint64_t> evals(kBinSize);
-
-    // Encode inputs before SendCorrection
-    // More details could be found in `yacl/kernel/algorithms/kkrt_ote_test.cc`
-    std::transform(bin_idx.cbegin(), bin_idx.cend(), evals.begin(),
-                   [&](uint128_t input) {
-                     uint64_t result;
-                     receiver.Encode(
-                         oprf_idx, HashToSizeT(input),
-                         {reinterpret_cast<uint8_t*>(&result), sizeof(result)});
-                     oprf_idx++;
-                     return result;
-                   });
-    receiver.SendCorrection(ctx, kBinSize);
-
-    // Step 3. For each bin element, invokes PSU(1, m+1)
-    for (size_t i = 0; i < bin_idx.size(); ++i) {
-      auto elem = bin_idx[i];
-      elems.emplace_back(elem);
-      uint64_t eval = evals[i];
-      std::vector<uint64_t> coeffs(kBinSize);
-      auto buf = ctx->Recv(ctx->PrevRank(), "Receive coefficients");
-
-      YACL_ENFORCE(buf.size() == kBinSize * sizeof(uint64_t));
-      std::memcpy(coeffs.data(), buf.data(), buf.size());
-
-      auto y = Evaluate(coeffs, HashToSizeT(elem)) ^ eval;
-      ctx->SendAsync(ctx->NextRank(),
-                     yacl::SerializeUint128(yacl::MakeUint128(0, y)),
-                     "Send evaluation");
+  for (size_t b = 0; b < hashing.size(); b++) {
+    hashing[b].resize(kBinSize);
+    std::sort(hashing[b].begin(), hashing[b].end());
+    for (size_t i = 0; i < kBinSize; ++i) {
+      uint64_t result;
+      receiver.Encode(oprf_idx, HashToSizeT(hashing[b][i]),
+                      {reinterpret_cast<uint8_t*>(&result), sizeof(result)});
+      evals.emplace_back(result);
+      oprf_idx++;
     }
   }
+  std::vector<std::vector<uint64_t>> allcoeffs(hashing.size(),
+                                               std::vector<uint64_t>(kBinSize));
+
+  // 接收数据
+  auto buf = ctx->Recv(ctx->PrevRank(), "Receive coefficients");
+
+  // 手动填充二维向量
+  const uint64_t* buf_data = reinterpret_cast<const uint64_t*>(buf.data());
+  for (size_t i = 0; i < hashing.size(); ++i) {
+    std::copy(buf_data + i * kBinSize, buf_data + (i + 1) * kBinSize,
+              allcoeffs[i].begin());
+  }
+  std::vector<std::vector<uint128_t>> ys(hashing.size(),
+                                               std::vector<uint128_t>(kBinSize));
+
+  // receiver.SendCorrection(ctx, num_ot);
+  for (size_t b = 0; b < hashing.size(); b++) {
+    // Step 3. For each bin element, invokes PSU(1, m+1)
+    for (size_t i = 0; i < kBinSize; ++i) {
+      auto elem = hashing[b][i];
+      elems.emplace_back(elem);
+      uint64_t eval = evals[b * kBinSize + i];
+      auto y = Evaluate(allcoeffs[b], HashToSizeT(elem)) ^ eval;
+      ys[b][i] = yacl::MakeUint128(0, y);
+    }
+  }
+  std::vector<uint128_t> flattened;
+  flattened.reserve(num_ot);
+  for (const auto& row : ys) {
+    flattened.insert(flattened.end(), row.begin(), row.end());
+  }
+  ctx->SendAsync(
+      ctx->NextRank(),
+      yacl::ByteContainerView(flattened.data(), num_ot * sizeof(uint128_t)),
+      "Send ys");
+  
 
   // Step 4. Sends new elements through OT
   auto keys = ss_sender.GenRot(ctx, num_ot);
@@ -200,41 +213,56 @@ std::vector<uint128_t> KrtwPsuRecv(
   yacl::dynamic_bitset<uint128_t> ot_choice(num_ot);
   size_t oprf_idx = 0;
   // Step 3. For each bin, invokes PSU(1, m+1)
-  for (auto& bin_idx : hashing) {
-    sender.RecvCorrection(ctx, kBinSize);
+  std::vector<std::vector<uint64_t>> allcoeffs(hashing.size(),
+                                               std::vector<uint64_t>(kBinSize));
+  std::vector<std::vector<uint64_t>> allseeds(hashing.size(),
+                                              std::vector<uint64_t>(kBinSize));
 
-    auto bin_size = bin_idx.size();
+  for (size_t b = 0; b < hashing.size(); b++) {
+    auto bin_size = hashing[b].size();
     for (size_t elem_idx = 0; elem_idx != kBinSize; ++elem_idx, ++oprf_idx) {
-      auto seed = yacl::crypto::FastRandU64();
+      allseeds[b][elem_idx] = yacl::crypto::FastRandU64();
       std::vector<uint64_t> xs(kBinSize);
       std::vector<uint64_t> ys(kBinSize);
       for (size_t i = 0; i != kBinSize; ++i) {
         xs[i] =
-            (i < bin_size ? HashToSizeT(bin_idx[i])
+            (i < bin_size ? HashToSizeT(hashing[b][i])
                           : i > bin_size ? yacl::crypto::FastRandU64() : kBot);
         oprf->Eval(oprf_idx, xs[i], reinterpret_cast<uint8_t*>(&ys[i]),
                    sizeof(ys[i]));
-        ys[i] ^= seed;
+        ys[i] ^= allseeds[b][i];
       }
-      /*
-      for (size_t i = begin; i < end; ++i) {
-          xs[i] =
-            (i < bin_size ? HashToSizeT(bin_idx[i])
-                          : i > bin_size ? yacl::crypto::FastRandU64() : kBot);
-          oprf->Eval(oprf_idx, xs[i], reinterpret_cast<uint8_t*>(&ys[i]),
-                   sizeof(ys[i]));
-          ys[i] ^= seed;
-      }
-      });
-      */
-      std::vector<uint64_t> coeffs = Interpolate(xs, ys);
-      ctx->SendAsync(ctx->NextRank(),
-                     yacl::ByteContainerView(coeffs.data(),
-                                             coeffs.size() * sizeof(uint64_t)),
-                     "Send coefficients");
-      auto eval = yacl::DeserializeUint128(
-          ctx->Recv(ctx->PrevRank(), "Receive evaluation"));
-      ot_choice[oprf_idx] = (eval == yacl::MakeUint128(0, seed));
+      allcoeffs[b] = Interpolate(xs, ys);
+    }
+  }
+  std::vector<uint64_t> flattened;
+  flattened.reserve(num_ot);
+  for (const auto& row : allcoeffs) {
+    flattened.insert(flattened.end(), row.begin(), row.end());
+  }
+
+  ctx->SendAsync(
+      ctx->NextRank(),
+      yacl::ByteContainerView(flattened.data(), num_ot * sizeof(uint64_t)),
+      "Send coefficients");
+
+  std::vector<std::vector<uint128_t>> allys(hashing.size(),
+                                               std::vector<uint128_t>(kBinSize));
+
+  // 接收数据
+  auto bufys = ctx->Recv(ctx->PrevRank(), "Receive ys");
+
+  // 手动填充二维向量
+  const uint128_t* buf_data = reinterpret_cast<const uint128_t*>(bufys.data());
+  for (size_t i = 0; i < hashing.size(); ++i) {
+    std::copy(buf_data + i * kBinSize, buf_data + (i + 1) * kBinSize,
+              allys[i].begin());
+  }
+  oprf_idx = 0;
+  for (size_t b = 0; b < hashing.size(); b++) {
+    for (size_t elem_idx = 0; elem_idx != kBinSize; ++elem_idx, ++oprf_idx) {
+      ot_choice[oprf_idx] =
+          (allys[b][elem_idx] == yacl::MakeUint128(0, allseeds[b][elem_idx]));
     }
   }
 

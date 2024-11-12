@@ -27,6 +27,7 @@
 
 #include "yacl/base/int128.h"
 #include "yacl/kernel/algorithms/silent_vole.h"
+#include "yacl/link/test_util.h"
 
 using namespace yacl::crypto;
 using namespace std;
@@ -142,7 +143,7 @@ void RunUPSI() {
   auto end_time = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration = end_time - start_time;
   std::cout << "Setup time: " << duration.count() << " seconds" << std::endl;
-  auto lctxs = yacl::link::test::SetupWorld(2);  // setup network
+  auto lctxs = yacl::link::test::SetupBrpcWorld(2);  // setup network
   auto start_time_base = std::chrono::high_resolution_clock::now();
   std::future<std::vector<uint128_t>> rr22_sender = std::async(
       std::launch::async, [&] { return BasePsiSend(lctxs[0], X, baxos); });
@@ -170,8 +171,6 @@ void RunUPSI() {
   };
 
   auto sender_stats = lctxs[0]->GetStats();
-  lctxs[0]->SetRecvTimeout(600000);
-  lctxs[1]->SetRecvTimeout(600000);
   auto receiver_stats = lctxs[1]->GetStats();
   std::cout << "Base PSI Sender sent bytes: "
             << bytesToMB(sender_stats->sent_bytes.load()) << " MB" << std::endl;
@@ -192,21 +191,16 @@ void RunUPSI() {
   size_t c3 = receiver_stats->sent_bytes.load();
   size_t c4 = receiver_stats->recv_bytes.load();
 
-  auto newlctxs = yacl::link::test::SetupWorld(2);  // setup network
-  // newlctxs[0]->ResetStats();
-  // newlctxs[1]->ResetStats();
-  newlctxs[0]->SetRecvTimeout(600000);
-  newlctxs[1]->SetRecvTimeout(600000);
   auto start_time1 = std::chrono::high_resolution_clock::now();
   std::future<std::vector<uint128_t>> upsisender =
       std::async(std::launch::async, [&] {
-        return UPsiSend(newlctxs[0], Y, Yadd, Ysub, yaddreceiver, xaddsender,
+        return UPsiSend(lctxs[0], Y, Yadd, Ysub, yaddreceiver, xaddsender,
                         intersection_sender);
       });
 
   std::future<std::vector<uint128_t>> upsireceiver =
       std::async(std::launch::async, [&] {
-        return UPsiRecv(newlctxs[1], X, Xadd, Xsub, xaddreceiver, yaddsender,
+        return UPsiRecv(lctxs[1], X, Xadd, Xsub, xaddreceiver, yaddsender,
                         intersection_receiver);
       });
   auto upsi_result_sender = upsisender.get();
@@ -223,8 +217,8 @@ void RunUPSI() {
     std::cout << "The uPSI error." << std::endl;
   }
   std::cout << "UPSI time: " << duration1.count() << " seconds" << std::endl;
-  auto sender_stats1 = newlctxs[0]->GetStats();
-  auto receiver_stats1 = newlctxs[1]->GetStats();
+  auto sender_stats1 = lctxs[0]->GetStats();
+  auto receiver_stats1 = lctxs[1]->GetStats();
   size_t c5 = sender_stats1->sent_bytes.load() - c1;
   size_t c6 = sender_stats1->recv_bytes.load() - c2;
   size_t c7 = receiver_stats1->sent_bytes.load() - c3;
