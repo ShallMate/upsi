@@ -17,6 +17,7 @@
 #include <memory>
 #include <vector>
 
+#include "examples/upsi/aPSI.h"
 #include "examples/upsi/ecdhpsi/receiver.h"
 #include "examples/upsi/ecdhpsi/sender.h"
 #include "examples/upsi/rr22/okvs/baxos.h"
@@ -47,3 +48,13 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
                                 EcdhReceiver& yaddreceiver,
                                 EcdhSender& xaddsender,
                                 std::set<uint128_t> intersection_sender);
+
+std::vector<uint128_t> UPsiRecvV1(
+    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& x,
+    std::vector<uint128_t>& xadd, std::vector<uint128_t>& xsub,
+    APSI& instance_x, std::set<uint128_t> intersection_receiver);
+
+std::vector<uint128_t> UPsiSendV1(
+    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& y,
+    std::vector<uint128_t>& yadd, std::vector<uint128_t>& ysub,
+    APSI& instance_y, std::set<uint128_t> intersection_sender);

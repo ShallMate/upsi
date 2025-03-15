@@ -21,7 +21,9 @@ cc_binary(
     srcs = [
             "main.cc",
             "upsi.h",
-            "upsi.cc"
+            "upsi.cc",
+            "aPSI.h",
+            "aPSI.cc"
             ],
     deps = [
         "//yacl/link",
@@ -29,8 +31,21 @@ cc_binary(
         "//examples/upsi/rr22:rr22",
         "//examples/upsi/psu:psu",
         "//examples/upsi/ecdhpsi:ecdh_psi",
+        "//yacl/base:int128",
+        "//yacl/crypto/hash:blake3",
+        "//yacl/utils:parallel",
+        "//yacl/crypto/hash:hash_utils",
+        "@local_apsi//:apsi",  
+        "@seal//:seal", 
+        "@kuku//:kuku"
     ],
-    copts = ["-maes", "-mpclmul"],
+    copts = ["-I/usr/local/include/APSI-0.11",
+             "-I/usr/local/include/SEAL-4.1",
+             "-I/usr/local/include/Kuku-2.1",
+             "-O3",
+             "-maes",
+             "-mpclmul"],
+    linkopts = ["-L/usr/local/lib", "-lapsi-0.11","-ljsoncpp","-llog4cplus","-lzmq"],
 )
 
 

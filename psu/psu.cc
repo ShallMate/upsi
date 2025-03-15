@@ -142,7 +142,7 @@ std::vector<uint128_t> KrtwPsuSend(
               allcoeffs[i].begin());
   }
   std::vector<std::vector<uint128_t>> ys(hashing.size(),
-                                               std::vector<uint128_t>(kBinSize));
+                                         std::vector<uint128_t>(kBinSize));
 
   // receiver.SendCorrection(ctx, num_ot);
   for (size_t b = 0; b < hashing.size(); b++) {
@@ -164,7 +164,6 @@ std::vector<uint128_t> KrtwPsuSend(
       ctx->NextRank(),
       yacl::ByteContainerView(flattened.data(), num_ot * sizeof(uint128_t)),
       "Send ys");
-  
 
   // Step 4. Sends new elements through OT
   auto keys = ss_sender.GenRot(ctx, num_ot);
@@ -247,7 +246,7 @@ std::vector<uint128_t> KrtwPsuRecv(
       "Send coefficients");
 
   std::vector<std::vector<uint128_t>> allys(hashing.size(),
-                                               std::vector<uint128_t>(kBinSize));
+                                            std::vector<uint128_t>(kBinSize));
 
   // 接收数据
   auto bufys = ctx->Recv(ctx->PrevRank(), "Receive ys");
