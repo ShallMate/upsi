@@ -18,7 +18,6 @@ The new protocol has some performance loss compared to the previous one, but it 
 Build the Docker image from the `examples/upsi` directory:
 
 ```bash
-cd /home/lgw/yacl/examples/upsi
 docker build --no-cache -f ./Dockerfile -t upsi:latest .
 ```
 
