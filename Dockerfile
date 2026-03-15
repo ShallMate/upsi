@@ -99,8 +99,7 @@ s = s.replace(
 )
 p.write_text(s)
 PY
-RUN rm -rf examples/upsi
-COPY . /workspace/examples/upsi
+RUN rm -rf examples/upsi && git clone --depth 1 https://github.com/ShallMate/upsi.git examples/upsi
 
 # simple_index.cc uses Boost header-only math/multiprecision components.
 RUN apt-get update && apt-get install -y --no-install-recommends libboost-dev && \
