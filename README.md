@@ -19,12 +19,6 @@ Build the Docker image from the `examples/upsi` directory:
 
 ```bash
 cd /home/lgw/yacl/examples/upsi
-docker build -f ./Dockerfile -t upsi:latest .
-```
-
-If you have updated the remote `ShallMate/upsi` repository and want to force Docker to pull the latest source during the build, use:
-
-```bash
 docker build --no-cache -f ./Dockerfile -t upsi:latest .
 ```
 
