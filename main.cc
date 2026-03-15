@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
+#include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "examples/upsi/aPSI.h"
@@ -33,6 +37,40 @@ using namespace yacl::crypto;
 using namespace std;
 
 using namespace apsi;
+
+namespace {
+
+std::filesystem::path GetExecutableDir() {
+  std::error_code ec;
+  auto exe_path = std::filesystem::read_symlink("/proc/self/exe", ec);
+  if (!ec) {
+    return exe_path.parent_path();
+  }
+  return std::filesystem::current_path(ec);
+}
+
+std::string ResolveParamsPath(std::string_view file_name) {
+  const auto exe_dir = GetExecutableDir();
+  const auto file_path = std::filesystem::path(file_name);
+  const std::array<std::filesystem::path, 6> candidates = {
+      file_path,
+      std::filesystem::path("parameters") / file_path,
+      std::filesystem::path("examples/upsi/parameters") / file_path,
+      exe_dir / "parameters" / file_path,
+      exe_dir / "examples/upsi/parameters" / file_path,
+      exe_dir.parent_path() / "parameters" / file_path,
+  };
+
+  for (const auto& candidate : candidates) {
+    if (std::filesystem::exists(candidate)) {
+      return candidate.string();
+    }
+  }
+
+  return (std::filesystem::path("parameters") / file_path).string();
+}
+
+}  // namespace
 
 std::vector<uint128_t> CreateRangeItems(size_t begin, size_t size) {
   std::vector<uint128_t> ret;
@@ -396,7 +434,7 @@ int RunAPSI() {
   size_t ns = 1 << 22;
   size_t nr = 1 << 8;
   std::vector<uint128_t> raw_sender_items = CreateRangeItems(1, ns);
-  APSI instance("/home/lgw/yacl/examples/uPSI/parameters/16M-256.json");
+  APSI instance(ResolveParamsPath("16M-256.json"));
   instance.insertItems(raw_sender_items);
   // instance.printParams();
   vector<uint128_t> raw_receiver_items = CreateRangeItems(1, nr);
@@ -440,8 +478,8 @@ void RunUPSIv1() {
   std::vector<uint128_t> Xsub = CreateRangeItems(num - subnum, subnum);
   std::vector<uint128_t> Ysub = CreateRangeItems(num - subnum, subnum);
   auto start_time = std::chrono::high_resolution_clock::now();
-  APSI instanceX("/home/lgw/yacl/examples/upsi/parameters/1M-512-com.json");
-  APSI instanceY("/home/lgw/yacl/examples/upsi/parameters/1M-512-com.json");
+  APSI instanceX(ResolveParamsPath("1M-512-com.json"));
+  APSI instanceY(ResolveParamsPath("1M-512-com.json"));
   instanceX.insertItems(X);
   instanceY.insertItems(Y);
   auto end_time = std::chrono::high_resolution_clock::now();
