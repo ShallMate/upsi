@@ -6,7 +6,7 @@ This repository contains the implementation of **Our UPSI**, a cryptographic pro
 
 ### Paper
 
-You can find the full paper [here](https://eprint.iacr.org/2024/1712.pdf).
+You can find the full paper [here](https://ieeexplore.ieee.org/abstract/document/11361182).
 
 ### Updates
 
