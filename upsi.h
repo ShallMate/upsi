@@ -21,7 +21,6 @@
 #include "examples/upsi/ecdhpsi/receiver.h"
 #include "examples/upsi/ecdhpsi/sender.h"
 #include "examples/upsi/rr22/okvs/baxos.h"
-
 #include "yacl/base/int128.h"
 #include "yacl/link/context.h"
 

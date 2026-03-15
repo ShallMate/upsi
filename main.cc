@@ -25,7 +25,6 @@
 #include "examples/upsi/rr22/okvs/baxos.h"
 #include "examples/upsi/rr22/rr22.h"
 #include "examples/upsi/upsi.h"
-
 #include "yacl/base/int128.h"
 #include "yacl/kernel/algorithms/silent_vole.h"
 #include "yacl/link/test_util.h"
@@ -241,7 +240,7 @@ void RunUPSI() {
 int RunPSU() {
   const int kWorldSize = 2;
   auto contexts = yacl::link::test::SetupWorld(kWorldSize);
-  auto n = 1 << 14;
+  auto n = 1 << 10;
   std::vector<uint128_t> items_a = CreateRangeItems(0, n);
   std::vector<uint128_t> items_b = CreateRangeItems(1, n);
   auto start_time = std::chrono::high_resolution_clock::now();
@@ -541,4 +540,5 @@ int main() {
   // RunAEcdhPsi();
   // RunAPSI();
   RunUPSIv1();
+  // RunPSU();
 }

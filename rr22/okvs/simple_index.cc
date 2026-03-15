@@ -22,7 +22,6 @@
 #include "boost/math/special_functions/binomial.hpp"
 #include "boost/multiprecision/cpp_bin_float.hpp"
 #include "spdlog/spdlog.h"
-
 #include "yacl/base/exception.h"
 
 namespace okvs {

@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "examples/upsi/ecdhpsi/sender.h"
-
 #include "yacl/base/int128.h"
 #include "yacl/crypto/ecc/ec_point.h"
 #include "yacl/crypto/ecc/ecc_spi.h"

@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "examples/upsi/rr22/okvs/galois128.h"
-
 #include "yacl/base/exception.h"
 
 namespace okvs {

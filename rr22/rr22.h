@@ -15,7 +15,6 @@
 #pragma once
 
 #include "examples/upsi/rr22/okvs/baxos.h"
-
 #include "yacl/link/test_util.h"
 
 namespace rr22 {

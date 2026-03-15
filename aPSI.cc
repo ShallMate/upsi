@@ -20,7 +20,6 @@
 
 #include "apsi/oprf/oprf_receiver.h"
 #include "apsi/receiver.h"
-
 #include "yacl/base/int128.h"
 
 std::vector<uint128_t> APSI::APsiRun(std::vector<uint128_t>& items) {

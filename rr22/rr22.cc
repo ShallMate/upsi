@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "examples/upsi/rr22/okvs/galois128.h"
-
 #include "yacl/base/int128.h"
 #include "yacl/kernel/algorithms/silent_vole.h"
 #include "yacl/utils/parallel.h"

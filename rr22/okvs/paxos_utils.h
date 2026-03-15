@@ -21,7 +21,6 @@
 
 #include "absl/types/span.h"
 #include "examples/upsi/rr22/okvs/galois128.h"
-
 #include "yacl/crypto/tools/prg.h"
 
 namespace okvs {

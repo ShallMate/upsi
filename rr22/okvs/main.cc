@@ -17,7 +17,6 @@
 
 #include "examples/upsi/rr22/okvs/baxos.h"
 #include "spdlog/spdlog.h"
-
 #include "yacl/crypto/rand/rand.h"
 #include "yacl/crypto/tools/prg.h"
 
