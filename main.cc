@@ -275,19 +275,19 @@ void RunUPSI() {
             << " MB" << std::endl;
 }
 
-int RunPSU() {
+int RunIbltPsu() {
   const int kWorldSize = 2;
   auto contexts = yacl::link::test::SetupWorld(kWorldSize);
   auto n = 1 << 10;
   std::vector<uint128_t> items_a = CreateRangeItems(0, n);
   std::vector<uint128_t> items_b = CreateRangeItems(1, n);
   auto start_time = std::chrono::high_resolution_clock::now();
-  std::future<std::vector<uint128_t>> krtwpsu_sender = std::async(
-      std::launch::async, [&] { return KrtwPsuSend(contexts[0], items_a); });
-  std::future<std::vector<uint128_t>> krtwpsu_receiver = std::async(
-      std::launch::async, [&] { return KrtwPsuRecv(contexts[1], items_b); });
-  krtwpsu_sender.get();
-  auto psu_result = krtwpsu_receiver.get();
+  std::future<std::vector<uint128_t>> iblt_psu_sender = std::async(
+      std::launch::async, [&] { return IbltPsuSend(contexts[0], items_a); });
+  std::future<std::vector<uint128_t>> iblt_psu_receiver = std::async(
+      std::launch::async, [&] { return IbltPsuRecv(contexts[1], items_b); });
+  iblt_psu_sender.get();
+  auto psu_result = iblt_psu_receiver.get();
   auto end_time = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration = end_time - start_time;
   std::cout << "Execution time: " << duration.count() << " seconds"
@@ -578,5 +578,5 @@ int main() {
   // RunAEcdhPsi();
   // RunAPSI();
   RunUPSIv1();
-  // RunPSU();
+  // RunIbltPsu();
 }

@@ -12,29 +12,70 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//bazel:yacl.bzl", "AES_COPT_FLAGS", "yacl_cc_library", "yacl_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
+IBLT_PSU_COPTS = [
+    "-std=c++20",
+    "-fcoroutines",
+    "-fopenmp",
+    "-msse2",
+    "-msse3",
+    "-msse4.1",
+    "-mavx2",
+    "-Iexamples/upsi/psu/iblt_based_psu",
+]
+
+cc_library(
+    name = "iblt_psu_impl",
+    srcs = [
+        "iblt_based_psu/iblt_h5.cc",
+        "iblt_based_psu/psu.cc",
+        "iblt_based_psu/volePSI/RsOprf.cpp",
+        "iblt_based_psu/volePSI/SimpleIndex.cpp",
+    ],
+    hdrs = [
+        "psu.h",
+        "iblt_based_psu/iblt_h5.hpp",
+        "iblt_based_psu/psu.h",
+        "iblt_based_psu/unordered_dense_compat.h",
+        "iblt_based_psu/volePSI/Defines.h",
+        "iblt_based_psu/volePSI/Paxos.h",
+        "iblt_based_psu/volePSI/PaxosImpl.h",
+        "iblt_based_psu/volePSI/PxUtil.h",
+        "iblt_based_psu/volePSI/RsOprf.h",
+        "iblt_based_psu/volePSI/SimpleIndex.h",
+    ],
+    copts = AES_COPT_FLAGS + IBLT_PSU_COPTS,
+    deps = [
+        "@local_volepsi//:headers",
+        "@local_volepsi//:support_libs",
+    ],
+    linkopts = [
+        "-fopenmp",
+        "-lssl",
+        "-lcrypto",
+        "-ldl",
+        "-lpthread",
+    ],
+)
+
 yacl_cc_library(
     name = "psu",
     srcs = [
-        "psu.cc"
+        "psu.cc",
     ],
     hdrs = [
         "psu.h",
     ],
-    copts = AES_COPT_FLAGS,
+    copts = AES_COPT_FLAGS + ["-std=c++20", "-fcoroutines"],
     deps = [
+        ":iblt_psu_impl",
+        "//yacl:secparam",
         "//yacl/base:exception",
         "//yacl/base:int128",
-        "//yacl/crypto/hash:hash_utils",
-        "//yacl/crypto/rand",
-        "//yacl/kernel/algorithms:base_ot",
-        "//yacl/kernel/algorithms:kkrt_ote",
-        "//yacl/kernel/algorithms:softspoken_ote",
         "//yacl/link",
-        "//yacl/math/f2k",
-        "@com_google_absl//absl/types:span",
     ],
 )
