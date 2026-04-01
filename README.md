@@ -19,10 +19,18 @@ We also thank **Peihan Miao** for pointing out the substantive issue that the **
 
 ### Docker
 
-Build the Docker image from the repository root:
+Build the Docker image from this repository root:
 
 ```bash
-docker build --no-cache -f examples/upsi/Dockerfile -t upsi:latest .
+docker build --no-cache -f ./Dockerfile -t upsi:latest .
+```
+
+To force a clean rebuild from scratch, remove the previous image first and then
+disable the Docker layer cache:
+
+```bash
+docker image rm -f upsi:latest || true
+docker build --no-cache --pull -f ./Dockerfile -t upsi:latest .
 ```
 
 Run the UPSI binary:
@@ -115,6 +123,41 @@ third_party/local_apsi_fixed
 
 This makes it possible to patch APSI locally without modifying `/usr/local`.
 
+### Why APSI Needs a Local Patch
+
+The default `main()` in this directory runs `RunUPSIv1()`. That path performs
+deletions in the APSI sender database before the online UPSI phase. In code
+terms, it deletes `X^-` and `Y^-` from APSI before inserting the fresh updates.
+
+With upstream APSI `v0.11.0`, this delete path can occasionally abort with:
+
+```text
+terminate called after throwing an instance of 'std::logic_error'
+  what():  failed to remove item
+```
+
+The practical reason is that APSI's `dispatch_remove` implementation launches
+worker tasks that capture `bundle_idx` by reference. Under concurrency, a worker
+can observe the wrong bundle index and try to remove an item from the wrong
+bundle, which triggers `failed to remove item` even when the benchmark logic is
+deleting items that really are present in the database.
+
+In our setup, the fix is to capture `bundle_idx` by value instead:
+
+```cpp
+// before
+futures[future_idx++] = tpm.thread_pool().enqueue([&]() {
+
+// after
+futures[future_idx++] = tpm.thread_pool().enqueue([&, bundle_idx]() {
+```
+
+The relevant APSI file is:
+
+```text
+sender/apsi/sender_db.cpp
+```
+
 Typical workflow:
 
 1. Edit your APSI source tree.
@@ -136,13 +179,31 @@ cmake --build /path/to/APSI-0.11.0/build-fixed --target install -j$(nproc)
 bazel build //examples/upsi:upsi
 ```
 
+If you want to apply the `bundle_idx` fix manually, edit
+`sender/apsi/sender_db.cpp` first and then rebuild/install APSI as above.
+
 If you want to use a different APSI install prefix, update the `local_apsi`
 `path` in `WORKSPACE` accordingly and rebuild.
 
-For example, if you are investigating the APSI `failed to remove item` issue,
-the relevant implementation is in `sender/apsi/sender_db.cpp`. A known fix is
-to make the remove-worker task capture `bundle_idx` by value instead of by
-reference in `dispatch_remove`.
+### APSI in Docker
+
+The Dockerfile in this directory already applies the same APSI fix during image
+build:
+
+1. Clone APSI `v0.11.0`
+2. Patch `sender/apsi/sender_db.cpp`
+3. Install the result into `third_party/local_apsi_fixed`
+4. Build `//examples/upsi:upsi`
+
+So if you build the image with:
+
+```bash
+docker build --no-cache --pull -f ./Dockerfile -t upsi:latest .
+```
+
+the resulting container already contains the patched APSI used by `RunUPSIv1()`.
+If you want to try a different APSI patch, edit the APSI patch step in
+`Dockerfile`, then rebuild the image from scratch.
 
 ### NOTE
 

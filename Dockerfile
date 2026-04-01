@@ -1,16 +1,21 @@
 # syntax=docker/dockerfile:1
 
-# Builder stage: install deps, build required libraries, then build the current
-# workspace's upsi binary.
+# Builder stage: install deps, build required libraries, then build the latest
+# pushed yacl + upsi sources.
 FROM ubuntu:22.04 AS builder
 
 ARG SEAL_VERSION=4.1.2
 ARG KUKU_VERSION=2.1.0
 ARG APSI_VERSION=0.11.0
+ARG VOLEPSI_REPO=https://github.com/Visa-Research/volepsi.git
+ARG VOLEPSI_REF=ed943f5
+ARG YACL_REPO=https://github.com/ShallMate/yacl.git
+ARG YACL_REF=f978244
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential ca-certificates curl git python3 python3-pip \
+    autoconf automake build-essential ca-certificates curl git libtool \
+    python3 python3-pip \
     cmake ninja-build pkg-config unzip wget gnupg lsb-release \
     libssl-dev libgflags-dev libunwind-dev libgoogle-glog-dev \
     libjsoncpp-dev libzmq3-dev liblog4cplus-dev \
@@ -76,11 +81,47 @@ RUN git clone --depth 1 --branch v4.3.4 https://github.com/zeromq/libzmq.git && 
     make -j$(nproc) && make install
 
 WORKDIR /workspace
-COPY . /workspace
+RUN git clone ${YACL_REPO} . && git checkout ${YACL_REF}
+RUN python3 - <<'PY'
+from pathlib import Path
+
+p = Path("/workspace/bazel/repositories.bzl")
+s = p.read_text()
+s = s.replace(
+    "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.5.1.tar.gz",
+    "https://codeload.github.com/BLAKE3-team/BLAKE3/tar.gz/refs/tags/1.5.1",
+)
+s = s.replace(
+    '        build_file = "@yacl//bazel:blake3.BUILD",\n',
+    '        build_file = "@yacl//bazel:blake3.BUILD",\n        type = "tar.gz",\n',
+    1,
+)
+s = s.replace(
+    '    path = "/home/lgw/sp26/mPSI/out/install/linux",\n',
+    '    path = "third_party/local_volepsi",\n',
+    1,
+)
+p.write_text(s)
+PY
+RUN rm -rf /workspace/examples/upsi
+COPY . /workspace/examples/upsi
 
 # simple_index.cc uses Boost header-only math/multiprecision components.
 RUN apt-get update && apt-get install -y --no-install-recommends libboost-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Build the volePSI install tree expected by the IBLT PSU backend.
+RUN git clone ${VOLEPSI_REPO} /tmp/volepsi && \
+    cd /tmp/volepsi && \
+    git checkout ${VOLEPSI_REF} && \
+    cmake -S . -B out/build/linux \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/workspace/third_party/local_volepsi \
+      -DFETCH_AUTO=ON \
+      -DVOLE_PSI_NO_SYSTEM_PATH=true \
+      -DVOLE_PSI_ENABLE_BOOST=ON && \
+    cmake --build out/build/linux --parallel $(nproc) && \
+    cmake --install out/build/linux
 
 # Build APSI into the workspace-local prefix expected by WORKSPACE.
 RUN git clone --depth 1 --branch v${APSI_VERSION} https://github.com/microsoft/apsi.git /tmp/apsi && \
@@ -103,6 +144,24 @@ RUN mkdir -p /workspace/third_party/local_apsi_fixed && \
       -DAPSI_BUILD_CLI=OFF && \
     cmake --build /tmp/apsi/build --target install -j$(nproc)
 
+# Ensure the cloned YACL workspace points local_volepsi at the in-image install
+# tree instead of a host-specific absolute path.
+RUN python3 - <<'PY'
+from pathlib import Path
+
+p = Path("/workspace/WORKSPACE")
+s = p.read_text()
+host_path = "/home/lgw/sp26/mPSI/out/install/linux"
+image_path = "third_party/local_volepsi"
+
+if host_path in s:
+    s = s.replace(host_path, image_path)
+elif image_path not in s:
+    raise SystemExit("local_volepsi path marker not found in /workspace/WORKSPACE")
+
+p.write_text(s)
+PY
+
 # Build the upsi example inside yacl without host bazelrc files.
 # Disable Bzlmod so Bazel uses the repo's WORKSPACE-based external dependency setup.
 RUN bazel --bazelrc=/dev/null build \
@@ -121,7 +180,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash ca-certificates iproute2 libgoogle-glog0v5 libunwind8 libzmq5 liblog4cplus-2.0.5 \
+    bash ca-certificates iproute2 libgoogle-glog0v5 libunwind8 libzmq5 liblog4cplus-2.0.5 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -27,7 +27,7 @@
 
 #include "coproto/Socket/LocalAsyncSock.h"
 #include "coproto/coproto.h"
-#include "examples/psu/krtw19_psu.h"
+#include "examples/upsi/psu/krtw19_psu.h"
 #include "examples/upsi/psu/iblt_based_psu/psu.h"
 #include "yacl/base/exception.h"
 #include "yacl/utils/serialize.h"

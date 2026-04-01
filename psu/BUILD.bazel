@@ -63,6 +63,29 @@ cc_library(
 )
 
 yacl_cc_library(
+    name = "krtw19_psu_lib",
+    srcs = [
+        "krtw19_psu.cc",
+    ],
+    hdrs = [
+        "krtw19_psu.h",
+    ],
+    deps = [
+        "//yacl/base:exception",
+        "//yacl/base:int128",
+        "//yacl/crypto/hash:hash_utils",
+        "//yacl/crypto/rand",
+        "//yacl/kernel/algorithms:base_ot",
+        "//yacl/kernel/algorithms:kkrt_ote",
+        "//yacl/kernel/algorithms:softspoken_ote",
+        "//yacl/link",
+        "//yacl/math/f2k",
+        "@com_google_absl//absl/types:span",
+    ],
+    copts = ["-maes", "-mpclmul"],
+)
+
+yacl_cc_library(
     name = "psu",
     srcs = [
         "psu.cc",
@@ -70,10 +93,17 @@ yacl_cc_library(
     hdrs = [
         "psu.h",
     ],
-    copts = AES_COPT_FLAGS + ["-std=c++20", "-fcoroutines"],
+    copts = AES_COPT_FLAGS + [
+        "-std=c++20",
+        "-fcoroutines",
+        "-msse2",
+        "-msse3",
+        "-msse4.1",
+        "-mavx2",
+    ],
     deps = [
         ":iblt_psu_impl",
-        "//examples/psu:krtw19_psu_lib",
+        ":krtw19_psu_lib",
         "//yacl:secparam",
         "//yacl/base:exception",
         "//yacl/base:int128",
