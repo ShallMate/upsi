@@ -23,7 +23,8 @@ cc_binary(
             "upsi.h",
             "upsi.cc",
             "aPSI.h",
-            "aPSI.cc"
+            "aPSI.cc",
+            "yacl_link_channel.h",
             ],
     deps = [
         "//yacl/link",
@@ -41,7 +42,6 @@ cc_binary(
              "-maes",
              "-mpclmul"],
 )
-
 
 
 

@@ -13,10 +13,14 @@
 // limitations under the License.
 
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
@@ -39,6 +43,10 @@ using namespace std;
 using namespace apsi;
 
 namespace {
+
+// Change this to `PsuProtocol::kKrtw` to run UPSI with the legacy KRTW PSU.
+constexpr PsuProtocol kUpSiPsuProtocol = PsuProtocol::kKrtw;
+constexpr uint64_t kUpSiRecvTimeoutMs = 10 * 60 * 1000;
 
 std::filesystem::path GetExecutableDir() {
   std::error_code ec;
@@ -68,6 +76,88 @@ std::string ResolveParamsPath(std::string_view file_name) {
   }
 
   return (std::filesystem::path("parameters") / file_path).string();
+}
+
+void ConfigureLinkTimeouts(
+    const std::vector<std::shared_ptr<yacl::link::Context>>& lctxs) {
+  for (const auto& lctx : lctxs) {
+    lctx->SetRecvTimeout(kUpSiRecvTimeoutMs);
+  }
+}
+
+std::string ToLowerAscii(std::string_view input) {
+  std::string normalized(input);
+  for (char& ch : normalized) {
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  }
+  return normalized;
+}
+
+std::optional<PsuProtocol> ParsePsuProtocol(std::string_view value) {
+  const auto normalized = ToLowerAscii(value);
+  if (normalized == "krtw") {
+    return PsuProtocol::kKrtw;
+  }
+  if (normalized == "iblt") {
+    return PsuProtocol::kIblt;
+  }
+  return std::nullopt;
+}
+
+const char* PsuProtocolName(PsuProtocol protocol) {
+  switch (protocol) {
+    case PsuProtocol::kKrtw:
+      return "krtw";
+    case PsuProtocol::kIblt:
+      return "iblt";
+  }
+  return "unknown";
+}
+
+void PrintUsage(const char* argv0) {
+  std::cout << "Usage: " << argv0 << " [--psu-backend=krtw|iblt]" << std::endl;
+  std::cout << "Environment override: UPSI_PSU_BACKEND=krtw|iblt"
+            << std::endl;
+}
+
+PsuProtocol ResolvePsuProtocol(int argc, char** argv) {
+  PsuProtocol protocol = kUpSiPsuProtocol;
+
+  if (const char* env = std::getenv("UPSI_PSU_BACKEND")) {
+    auto parsed = ParsePsuProtocol(env);
+    if (!parsed.has_value()) {
+      std::cerr << "Invalid UPSI_PSU_BACKEND: " << env << std::endl;
+      PrintUsage(argv[0]);
+      std::exit(1);
+    }
+    protocol = *parsed;
+  }
+
+  for (int idx = 1; idx < argc; ++idx) {
+    std::string_view arg(argv[idx]);
+    if (arg == "--help" || arg == "-h") {
+      PrintUsage(argv[0]);
+      std::exit(0);
+    }
+    constexpr std::string_view kPrefix = "--psu-backend=";
+    if (arg.substr(0, kPrefix.size()) == kPrefix) {
+      auto parsed = ParsePsuProtocol(arg.substr(kPrefix.size()));
+      if (!parsed.has_value()) {
+        std::cerr << "Invalid --psu-backend value: "
+                  << arg.substr(kPrefix.size()) << std::endl;
+        PrintUsage(argv[0]);
+        std::exit(1);
+      }
+      protocol = *parsed;
+      continue;
+    }
+
+    std::cerr << "Unknown argument: " << arg << std::endl;
+    PrintUsage(argv[0]);
+    std::exit(1);
+  }
+
+  return protocol;
 }
 
 }  // namespace
@@ -107,6 +197,7 @@ void RunRR22() {
   std::vector<uint128_t> items_b = CreateRangeItems(10, num);
 
   auto lctxs = yacl::link::test::SetupBrpcWorld(2);  // setup network
+  ConfigureLinkTimeouts(lctxs);
 
   auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -184,6 +275,7 @@ void RunUPSI() {
   std::chrono::duration<double> duration = end_time - start_time;
   std::cout << "Setup time: " << duration.count() << " seconds" << std::endl;
   auto lctxs = yacl::link::test::SetupBrpcWorld(2);  // setup network
+  ConfigureLinkTimeouts(lctxs);
   auto start_time_base = std::chrono::high_resolution_clock::now();
   std::future<std::vector<uint128_t>> rr22_sender = std::async(
       std::launch::async, [&] { return BasePsiSend(lctxs[0], X, baxos); });
@@ -275,19 +367,19 @@ void RunUPSI() {
             << " MB" << std::endl;
 }
 
-int RunIbltPsu() {
+int RunPsuDemo() {
   const int kWorldSize = 2;
   auto contexts = yacl::link::test::SetupWorld(kWorldSize);
   auto n = 1 << 10;
   std::vector<uint128_t> items_a = CreateRangeItems(0, n);
   std::vector<uint128_t> items_b = CreateRangeItems(1, n);
   auto start_time = std::chrono::high_resolution_clock::now();
-  std::future<std::vector<uint128_t>> iblt_psu_sender = std::async(
-      std::launch::async, [&] { return IbltPsuSend(contexts[0], items_a); });
-  std::future<std::vector<uint128_t>> iblt_psu_receiver = std::async(
-      std::launch::async, [&] { return IbltPsuRecv(contexts[1], items_b); });
-  iblt_psu_sender.get();
-  auto psu_result = iblt_psu_receiver.get();
+  std::future<std::vector<uint128_t>> psu_sender = std::async(
+      std::launch::async, [&] { return PsuSend(contexts[0], items_a); });
+  std::future<std::vector<uint128_t>> psu_receiver = std::async(
+      std::launch::async, [&] { return PsuRecv(contexts[1], items_b); });
+  psu_sender.get();
+  auto psu_result = psu_receiver.get();
   auto end_time = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> duration = end_time - start_time;
   std::cout << "Execution time: " << duration.count() << " seconds"
@@ -486,6 +578,9 @@ void RunUPSIv1() {
   std::chrono::duration<double> duration = end_time - start_time;
   std::cout << "Setup time: " << duration.count() << " seconds" << std::endl;
   auto lctxs = yacl::link::test::SetupBrpcWorld(2);  // setup network
+  ConfigureLinkTimeouts(lctxs);
+  instanceY.UseLinkChannel(lctxs[0], lctxs[0]->NextRank());
+  instanceX.UseLinkChannel(lctxs[1], lctxs[1]->NextRank());
   auto start_time_base = std::chrono::high_resolution_clock::now();
   std::future<std::vector<uint128_t>> rr22_sender = std::async(
       std::launch::async, [&] { return BasePsiSend(lctxs[0], X, baxos); });
@@ -566,17 +661,17 @@ void RunUPSIv1() {
   auto receiver_stats1 = lctxs[1]->GetStats();
   size_t c5 = sender_stats1->sent_bytes.load() - c1;
   size_t c6 = sender_stats1->recv_bytes.load() - c2;
-  std::cout << "UPSI Total Communication: "
-            << bytesToMB(c5) + bytesToMB(c6) +
-                   bytesToMB(instanceX.channel_->bytes_received()) +
-                   bytesToMB(instanceY.channel_->bytes_received())
+  std::cout << "UPSI Total Communication: " << bytesToMB(c5) + bytesToMB(c6)
             << " MB" << std::endl;
 }
 
-int main() {
+int main(int argc, char** argv) {
+  const auto protocol = ResolvePsuProtocol(argc, argv);
+  SetDefaultPsuProtocol(protocol);
+  std::cout << "PSU backend: " << PsuProtocolName(protocol) << std::endl;
   // RunUPSI();
   // RunAEcdhPsi();
   // RunAPSI();
   RunUPSIv1();
-  // RunIbltPsu();
+  // RunPsuDemo();
 }

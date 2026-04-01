@@ -61,7 +61,7 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
   std::vector<uint128_t> t = xaddreceiver.EcdhPsiRecv(ctx, xadd);
   // cout << "t=" << t.size() << endl;
 
-  std::vector<uint128_t> u = IbltPsuSend(ctx, t);
+  std::vector<uint128_t> u = PsuSend(ctx, t);
   // cout << "u=" << u.size() << endl;
 
   std::set<uint128_t> xsubset(xsub.begin(), xsub.end());
@@ -73,7 +73,7 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
   std::vector<uint128_t> xsubintersction(xsubsetintersction.begin(),
                                          xsubsetintersction.end());
 
-  std::vector<uint128_t> w = IbltPsuSend(ctx, xsubintersction);
+  std::vector<uint128_t> w = PsuSend(ctx, xsubintersction);
   // cout << "w=" << w.size() << endl;
   std::set<uint128_t> wset(w.begin(), w.end());
 
@@ -109,7 +109,7 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
   // cout << "v = " << v.size() << endl;
 
   xaddsender.EcdhPsiSend(ctx, xadd_size);
-  std::vector<uint128_t> u = IbltPsuRecv(ctx, v);
+  std::vector<uint128_t> u = PsuRecv(ctx, v);
   // cout << "u = " << u.size() << endl;
 
   std::set<uint128_t> ysubset(ysub.begin(), ysub.end());
@@ -121,7 +121,7 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
   std::vector<uint128_t> ysubintersction(ysubsetintersction.begin(),
                                          ysubsetintersction.end());
   // cout << ysubintersction.size() << endl;
-  std::vector<uint128_t> w = IbltPsuRecv(ctx, ysubintersction);
+  std::vector<uint128_t> w = PsuRecv(ctx, ysubintersction);
   // cout<<w.size()<<endl;
   std::set<uint128_t> wset(w.begin(), w.end());
 
@@ -143,7 +143,7 @@ std::vector<uint128_t> UPsiRecvV1(
   std::vector<uint128_t> t = instance_x.APsiRun(xadd);
   // cout << "t=" << t.size() << endl;
 
-  std::vector<uint128_t> u = IbltPsuSend(ctx, t);
+  std::vector<uint128_t> u = PsuSend(ctx, t);
   // cout << "u=" << u.size() << endl;
 
   std::set<uint128_t> xsubset(xsub.begin(), xsub.end());
@@ -155,7 +155,7 @@ std::vector<uint128_t> UPsiRecvV1(
   std::vector<uint128_t> xsubintersction(xsubsetintersction.begin(),
                                          xsubsetintersction.end());
 
-  std::vector<uint128_t> w = IbltPsuSend(ctx, xsubintersction);
+  std::vector<uint128_t> w = PsuSend(ctx, xsubintersction);
   // cout << "w=" << w.size() << endl;
   std::set<uint128_t> wset(w.begin(), w.end());
 
@@ -176,7 +176,7 @@ std::vector<uint128_t> UPsiSendV1(
     std::vector<uint128_t>& yadd, std::vector<uint128_t>& ysub,
     APSI& instance_y, std::set<uint128_t> intersection_sender) {
   std::vector<uint128_t> v = instance_y.APsiRun(yadd);
-  std::vector<uint128_t> u = IbltPsuRecv(ctx, v);
+  std::vector<uint128_t> u = PsuRecv(ctx, v);
   // cout << "u = " << u.size() << endl;
 
   std::set<uint128_t> ysubset(ysub.begin(), ysub.end());
@@ -188,7 +188,7 @@ std::vector<uint128_t> UPsiSendV1(
   std::vector<uint128_t> ysubintersction(ysubsetintersction.begin(),
                                          ysubsetintersction.end());
   // cout << ysubintersction.size() << endl;
-  std::vector<uint128_t> w = IbltPsuRecv(ctx, ysubintersction);
+  std::vector<uint128_t> w = PsuRecv(ctx, ysubintersction);
   // cout<<w.size()<<endl;
   std::set<uint128_t> wset(w.begin(), w.end());
 

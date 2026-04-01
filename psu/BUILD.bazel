@@ -73,6 +73,7 @@ yacl_cc_library(
     copts = AES_COPT_FLAGS + ["-std=c++20", "-fcoroutines"],
     deps = [
         ":iblt_psu_impl",
+        "//examples/psu:krtw19_psu_lib",
         "//yacl:secparam",
         "//yacl/base:exception",
         "//yacl/base:int128",

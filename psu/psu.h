@@ -23,10 +23,35 @@
 
 YACL_MODULE_DECLARE("psu", SecParam::C::k128, SecParam::S::k40);
 
+enum class PsuProtocol {
+  kIblt = 0,
+  kKrtw = 1,
+};
+
+void SetDefaultPsuProtocol(PsuProtocol protocol);
+
+PsuProtocol GetDefaultPsuProtocol();
+
+std::vector<uint128_t> PsuSend(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes);
+
+std::vector<uint128_t> PsuRecv(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes);
+
 std::vector<uint128_t> IbltPsuSend(
     const std::shared_ptr<yacl::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes);
 
 std::vector<uint128_t> IbltPsuRecv(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes);
+
+std::vector<uint128_t> KrtwPsuSend(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes);
+
+std::vector<uint128_t> KrtwPsuRecv(
     const std::shared_ptr<yacl::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes);

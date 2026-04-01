@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-# Builder stage: install deps, build required libraries, then build the yacl upsi binary.
+# Builder stage: install deps, build required libraries, then build the current
+# workspace's upsi binary.
 FROM ubuntu:22.04 AS builder
 
 ARG SEAL_VERSION=4.1.2
@@ -74,36 +75,33 @@ RUN git clone --depth 1 --branch v4.3.4 https://github.com/zeromq/libzmq.git && 
     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
     make -j$(nproc) && make install
 
-# Install APSI (must provide /usr/local/include/APSI-0.11 and /usr/local/lib/libapsi-0.11.a)
-RUN git clone --depth 1 --branch v${APSI_VERSION} https://github.com/microsoft/apsi.git && \
-    mkdir -p apsi/build && cd apsi/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
-    make -j$(nproc) && make install
-
-# Clone remote repos (build entirely from upstream sources)
 WORKDIR /workspace
-RUN git clone --depth 1 https://github.com/ShallMate/yacl.git .
-RUN python3 - <<'PY'
-from pathlib import Path
-
-p = Path("/workspace/bazel/repositories.bzl")
-s = p.read_text()
-s = s.replace(
-    "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.5.1.tar.gz",
-    "https://codeload.github.com/BLAKE3-team/BLAKE3/tar.gz/refs/tags/1.5.1",
-)
-s = s.replace(
-    '        build_file = "@yacl//bazel:blake3.BUILD",\n',
-    '        build_file = "@yacl//bazel:blake3.BUILD",\n        type = "tar.gz",\n',
-    1,
-)
-p.write_text(s)
-PY
-RUN rm -rf examples/upsi && git clone --depth 1 https://github.com/ShallMate/upsi.git examples/upsi
+COPY . /workspace
 
 # simple_index.cc uses Boost header-only math/multiprecision components.
 RUN apt-get update && apt-get install -y --no-install-recommends libboost-dev && \
     rm -rf /var/lib/apt/lists/*
+
+# Build APSI into the workspace-local prefix expected by WORKSPACE.
+RUN git clone --depth 1 --branch v${APSI_VERSION} https://github.com/microsoft/apsi.git /tmp/apsi && \
+    python3 - <<'PY'
+from pathlib import Path
+
+p = Path("/tmp/apsi/sender/apsi/sender_db.cpp")
+s = p.read_text()
+old = '                    futures[future_idx++] = tpm.thread_pool().enqueue([&]() {\n'
+new = '                    futures[future_idx++] = tpm.thread_pool().enqueue([&, bundle_idx]() {\n'
+if old not in s:
+    raise SystemExit("APSI remove-worker patch point not found")
+p.write_text(s.replace(old, new, 1))
+PY
+RUN mkdir -p /workspace/third_party/local_apsi_fixed && \
+    cmake -S /tmp/apsi -B /tmp/apsi/build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/workspace/third_party/local_apsi_fixed \
+      -DAPSI_BUILD_TESTS=OFF \
+      -DAPSI_BUILD_CLI=OFF && \
+    cmake --build /tmp/apsi/build --target install -j$(nproc)
 
 # Build the upsi example inside yacl without host bazelrc files.
 # Disable Bzlmod so Bazel uses the repo's WORKSPACE-based external dependency setup.
@@ -123,11 +121,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libgoogle-glog0v5 libunwind8 libzmq5 liblog4cplus-2.0.5 \
+    bash ca-certificates iproute2 libgoogle-glog0v5 libunwind8 libzmq5 liblog4cplus-2.0.5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /workspace/bazel-bin/examples/upsi/upsi /app/upsi
 COPY --from=builder /workspace/examples/upsi/parameters /app/parameters
+COPY --from=builder /workspace/examples/upsi/network_setup.sh /app/network_setup.sh
+
+RUN chmod +x /app/network_setup.sh
 
 CMD ["./upsi"]

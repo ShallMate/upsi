@@ -15,6 +15,8 @@
 #include "examples/upsi/psu/psu.h"
 
 #include <array>
+#include <atomic>
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -25,6 +27,7 @@
 
 #include "coproto/Socket/LocalAsyncSock.h"
 #include "coproto/coproto.h"
+#include "examples/psu/krtw19_psu.h"
 #include "examples/upsi/psu/iblt_based_psu/psu.h"
 #include "yacl/base/exception.h"
 #include "yacl/utils/serialize.h"
@@ -37,11 +40,15 @@ using LocalSocket = coproto::LocalAsyncSocket;
 using macoro::sync_wait;
 using macoro::when_all_ready;
 
+std::atomic<PsuProtocol> g_default_psu_protocol{PsuProtocol::kIblt};
+
 constexpr double kIbltMultFactor = 1.5;
 constexpr size_t kSoftspokenOtFieldSize = 2;
 constexpr bool kOprfReducedRounds = false;
 constexpr uint64_t kIbltSeedHi = 123;
 constexpr uint64_t kIbltSeedLo = 456;
+constexpr char kKrtwUnionSizeTag[] = "krtw_psu_union_size";
+constexpr char kKrtwUnionPayloadTag[] = "krtw_psu_union_payload";
 
 enum class Role {
   kSender = 0,
@@ -175,6 +182,38 @@ std::vector<uint128_t> RunIbltPsu(
 
 }  // namespace
 
+void SetDefaultPsuProtocol(PsuProtocol protocol) {
+  g_default_psu_protocol.store(protocol, std::memory_order_relaxed);
+}
+
+PsuProtocol GetDefaultPsuProtocol() {
+  return g_default_psu_protocol.load(std::memory_order_relaxed);
+}
+
+std::vector<uint128_t> PsuSend(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes) {
+  switch (GetDefaultPsuProtocol()) {
+    case PsuProtocol::kIblt:
+      return IbltPsuSend(ctx, elem_hashes);
+    case PsuProtocol::kKrtw:
+      return KrtwPsuSend(ctx, elem_hashes);
+  }
+  YACL_THROW("unsupported PSU protocol");
+}
+
+std::vector<uint128_t> PsuRecv(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes) {
+  switch (GetDefaultPsuProtocol()) {
+    case PsuProtocol::kIblt:
+      return IbltPsuRecv(ctx, elem_hashes);
+    case PsuProtocol::kKrtw:
+      return KrtwPsuRecv(ctx, elem_hashes);
+  }
+  YACL_THROW("unsupported PSU protocol");
+}
+
 std::vector<uint128_t> IbltPsuSend(
     const std::shared_ptr<yacl::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes) {
@@ -185,4 +224,37 @@ std::vector<uint128_t> IbltPsuRecv(
     const std::shared_ptr<yacl::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes) {
   return RunIbltPsu(ctx, elem_hashes, Role::kReceiver);
+}
+
+std::vector<uint128_t> KrtwPsuSend(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes) {
+  examples::psu::KrtwPsuSend(ctx, elem_hashes);
+
+  const auto union_size = static_cast<size_t>(
+      yacl::DeserializeUint128(ctx->Recv(ctx->PrevRank(), kKrtwUnionSizeTag)));
+  if (union_size == 0) {
+    return {};
+  }
+
+  std::vector<uint128_t> union_items(union_size);
+  auto union_buf = ctx->Recv(ctx->PrevRank(), kKrtwUnionPayloadTag);
+  YACL_ENFORCE(union_buf.size() == int64_t(union_size * sizeof(uint128_t)));
+  std::memcpy(union_items.data(), union_buf.data(), union_buf.size());
+  return union_items;
+}
+
+std::vector<uint128_t> KrtwPsuRecv(
+    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::vector<uint128_t>& elem_hashes) {
+  auto union_items = examples::psu::KrtwPsuRecv(ctx, elem_hashes);
+  ctx->SendAsync(ctx->NextRank(), yacl::SerializeUint128(union_items.size()),
+                 kKrtwUnionSizeTag);
+  if (!union_items.empty()) {
+    ctx->SendAsync(ctx->NextRank(),
+                   yacl::ByteContainerView(
+                       union_items.data(), union_items.size() * sizeof(uint128_t)),
+                   kKrtwUnionPayloadTag);
+  }
+  return union_items;
 }

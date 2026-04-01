@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #pragma once
+#include <apsi/network/channel.h>
 #include <apsi/network/stream_channel.h>
 #include <apsi/sender.h>
 
@@ -21,13 +22,16 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 
+#include "examples/upsi/yacl_link_channel.h"
 #include "yacl/crypto/hash/hash_utils.h"
+#include "yacl/link/context.h"
 #include "yacl/utils/parallel.h"
 #include "yacl/utils/serialize.h"
 
-inline std::vector<std::string> ItemsToStr(std::vector<uint128_t>& items) {
+inline std::vector<std::string> ItemsToStr(const std::vector<uint128_t>& items) {
   std::vector<std::string> ret(items.size());
   yacl::parallel_for(0, items.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
@@ -59,11 +63,16 @@ class APSI {
     sender_db = std::make_shared<apsi::sender::SenderDB>(*params_);
   }
 
+  void UseLinkChannel(const std::shared_ptr<yacl::link::Context>& ctx,
+                      size_t peer_rank) {
+    channel_ = std::make_unique<apsi::network::YaclLinkChannel>(ctx, peer_rank);
+  }
+
   void printParams() const {
     std::cout << "Params content: " << params_content_ << std::endl;
   }
 
-  void insertItems(std::vector<uint128_t>& items) {
+  void insertItems(const std::vector<uint128_t>& items) {
     std::vector<std::string> raw_sender_items_str = ItemsToStr(items);
     // We need to convert the strings to Item objects
     std::vector<apsi::Item> sender_items(raw_sender_items_str.begin(),
@@ -72,7 +81,7 @@ class APSI {
     sender_db->insert_or_assign(sender_items);
   }
 
-  void deleteItems(std::vector<uint128_t>& items) {
+  void deleteItems(const std::vector<uint128_t>& items) {
     std::vector<std::string> raw_sender_items_str = ItemsToStr(items);
     // We need to convert the strings to Item objects
     std::vector<apsi::Item> sender_items(raw_sender_items_str.begin(),
@@ -81,8 +90,16 @@ class APSI {
     sender_db->remove(sender_items);
   }
 
+  void ResetItems(const std::vector<uint128_t>& items) {
+    if (!params_.has_value()) {
+      throw std::runtime_error("PSI params not initialized");
+    }
+    sender_db = std::make_shared<apsi::sender::SenderDB>(*params_);
+    insertItems(items);
+  }
+
   std::unique_ptr<std::stringstream> channel_stream_;
-  std::unique_ptr<apsi::network::StreamChannel> channel_;
+  std::unique_ptr<apsi::network::Channel> channel_;
   std::string params_content_;
   std::optional<apsi::PSIParams> params_;  // 允许先初始化内容，再创建对象
   std::shared_ptr<apsi::sender::SenderDB> sender_db;
