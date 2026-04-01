@@ -124,6 +124,57 @@ A typical workflow inside the runtime container is:
 ./network_setup.sh clear
 ```
 
+### Benchmark Script
+
+The repository also provides a helper script for repeated benchmark runs:
+
+```bash
+./run_benchmarks.sh
+```
+
+By default it:
+
+- builds `//examples/upsi:upsi`
+- runs both PSU backends: `krtw`, `iblt`
+- runs four scenarios: `LAN`, `WAN_200Mbps`, `WAN_50Mbps`, `WAN_5Mbps`
+- repeats each backend/scenario pair `5` times
+- writes logs under `benchmark_logs/<timestamp>/`
+
+Common options:
+
+```bash
+./run_benchmarks.sh --help
+./run_benchmarks.sh --backends=krtw --scenarios=WAN_5Mbps --repeats=1
+./run_benchmarks.sh --backends=krtw,iblt --scenarios=LAN,WAN_200Mbps --repeats=3
+./run_benchmarks.sh --skip-build
+./run_benchmarks.sh --output-dir=./benchmark_logs/manual_run
+```
+
+Main arguments:
+
+- `--repeats=N`: number of runs per backend/scenario pair
+- `--backends=a,b`: choose from `krtw`, `iblt`
+- `--scenarios=a,b`: choose from `LAN`, `WAN_200Mbps`, `WAN_50Mbps`, `WAN_5Mbps`
+- `--skip-build`: reuse the existing `bazel-bin/examples/upsi/upsi`
+- `--output-dir=PATH`: choose where logs and summaries are written
+
+Outputs:
+
+- `execution.log`: high-level execution trace
+- `details.tsv`: per-run metrics and log paths
+- `summary.tsv`: aggregate numeric summary
+- `summary.md`: markdown table with aggregate and per-run results
+- `runs/*.log`: raw stdout/stderr for each benchmark run
+
+Notes:
+
+- The script is intended to run from a source checkout, not from the minimal
+  published runtime image.
+- It configures `tc` on `lo` by itself via `network_setup.sh`.
+- If you are not root, it will try to re-exec itself through `unshare -Urn`.
+- The current IBLT PSU path uses internal local sockets, so WAN shaping does
+  not fully cover the IBLT PSU exchange itself.
+
 ### Modifying APSI Source
 
 This repository links APSI through the `local_apsi` repository declared in
