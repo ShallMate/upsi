@@ -175,6 +175,43 @@ Notes:
 - The current IBLT PSU path uses internal local sockets, so WAN shaping does
   not fully cover the IBLT PSU exchange itself.
 
+### Running Benchmarks in Docker
+
+The published image `shallmate/upsi:latest` is a minimal runtime image. It is
+meant for running `./upsi`, not for running `./run_benchmarks.sh`.
+
+If you want to run the benchmark script inside Docker, build the `builder`
+stage instead:
+
+```bash
+docker build --target builder -f ./Dockerfile -t upsi-builder:latest .
+```
+
+Then run the benchmark script inside that image:
+
+```bash
+docker run --rm -it --cap-add=NET_ADMIN \
+  upsi-builder:latest \
+  bash -lc 'cd /workspace/examples/upsi && ./run_benchmarks.sh --skip-build'
+```
+
+Example with a smaller run:
+
+```bash
+docker run --rm -it --cap-add=NET_ADMIN \
+  upsi-builder:latest \
+  bash -lc "cd /workspace/examples/upsi && ./run_benchmarks.sh --backends=krtw --scenarios=WAN_5Mbps --repeats=1 --skip-build"
+```
+
+If you want to keep the benchmark logs on the host, mount the output directory:
+
+```bash
+docker run --rm -it --cap-add=NET_ADMIN \
+  -v "$(pwd)/benchmark_logs:/workspace/examples/upsi/benchmark_logs" \
+  upsi-builder:latest \
+  bash -lc 'cd /workspace/examples/upsi && ./run_benchmarks.sh --skip-build'
+```
+
 ### Modifying APSI Source
 
 This repository links APSI through the `local_apsi` repository declared in
