@@ -25,6 +25,13 @@ Build the Docker image from this repository root:
 docker build --no-cache -f ./Dockerfile -t upsi:latest .
 ```
 
+By default, the Dockerfile pulls `ShallMate/yacl` from the dedicated `upsi`
+branch. If you want to override that, pass a different ref explicitly:
+
+```bash
+docker build --build-arg YACL_REF=<branch-or-commit> -f ./Dockerfile -t upsi:latest .
+```
+
 If you do not want to build locally, you can pull the prebuilt image directly:
 
 ```bash

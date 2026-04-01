@@ -10,7 +10,7 @@ ARG APSI_VERSION=0.11.0
 ARG VOLEPSI_REPO=https://github.com/Visa-Research/volepsi.git
 ARG VOLEPSI_REF=ed943f5
 ARG YACL_REPO=https://github.com/ShallMate/yacl.git
-ARG YACL_REF=f978244
+ARG YACL_REF=upsi
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -87,20 +87,28 @@ from pathlib import Path
 
 p = Path("/workspace/bazel/repositories.bzl")
 s = p.read_text()
-s = s.replace(
-    "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.5.1.tar.gz",
-    "https://codeload.github.com/BLAKE3-team/BLAKE3/tar.gz/refs/tags/1.5.1",
-)
-s = s.replace(
-    '        build_file = "@yacl//bazel:blake3.BUILD",\n',
-    '        build_file = "@yacl//bazel:blake3.BUILD",\n        type = "tar.gz",\n',
-    1,
-)
-s = s.replace(
-    '    path = "/home/lgw/sp26/mPSI/out/install/linux",\n',
-    '    path = "third_party/local_volepsi",\n',
-    1,
-)
+old_blake3 = "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.5.1.tar.gz"
+new_blake3 = "https://codeload.github.com/BLAKE3-team/BLAKE3/tar.gz/refs/tags/1.5.1"
+if old_blake3 in s:
+    s = s.replace(old_blake3, new_blake3)
+elif new_blake3 not in s:
+    raise SystemExit("BLAKE3 archive URL marker not found")
+
+if '        type = "tar.gz",\n' not in s:
+    needle = '        build_file = "@yacl//bazel:blake3.BUILD",\n'
+    if needle not in s:
+        raise SystemExit("BLAKE3 build_file marker not found")
+    s = s.replace(
+        needle,
+        '        build_file = "@yacl//bazel:blake3.BUILD",\n        type = "tar.gz",\n',
+        1,
+    )
+
+host_path = '    path = "/home/lgw/sp26/mPSI/out/install/linux",\n'
+image_path = '    path = "third_party/local_volepsi",\n'
+if host_path in s:
+    s = s.replace(host_path, image_path, 1)
+
 p.write_text(s)
 PY
 RUN rm -rf /workspace/examples/upsi
