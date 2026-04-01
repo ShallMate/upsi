@@ -25,6 +25,18 @@ Build the Docker image from this repository root:
 docker build --no-cache -f ./Dockerfile -t upsi:latest .
 ```
 
+If you do not want to build locally, you can pull the prebuilt image directly:
+
+```bash
+docker pull shallmate/upsi:latest
+```
+
+and run it with:
+
+```bash
+docker run --rm shallmate/upsi:latest
+```
+
 To force a clean rebuild from scratch, remove the previous image first and then
 disable the Docker layer cache:
 
