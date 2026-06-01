@@ -19,8 +19,6 @@
 #include <limits>
 #include <vector>
 
-#include "boost/math/special_functions/binomial.hpp"
-#include "boost/multiprecision/cpp_bin_float.hpp"
 #include "spdlog/spdlog.h"
 #include "yacl/base/exception.h"
 
@@ -30,38 +28,35 @@ namespace {
 // template<unsigned int N = 16>
 double GetBinOverflowProb(uint64_t num_bins, uint64_t num_balls,
                           uint64_t get_bin_size, double epsilon = 0.0001) {
+  (void)epsilon;
+
+  YACL_ENFORCE(num_bins > 0, "num_bins must be non-zero.");
+
   if (num_balls <= get_bin_size) return std::numeric_limits<double>::max();
 
-  YACL_ENFORCE(num_balls <= std::numeric_limits<int32_t>::max(),
-               "boost::math::binomial_coefficient(...) only supports   {} bit "
-               "inputs which was exceeded.",
-               std::to_string(sizeof(unsigned) * 8));
+  const long double lambda =
+      static_cast<long double>(num_balls) / static_cast<long double>(num_bins);
+  const long double threshold = static_cast<long double>(get_bin_size) + 1.0L;
+  if (lambda <= 0) return std::numeric_limits<double>::max();
 
-  // std::cout << numBalls << " " << num_bins << " " << binSize << std::endl;
-  typedef boost::multiprecision::number<
-      boost::multiprecision::backends::cpp_bin_float<16>>
-      T;
-  T sum = 0.0;
-  T sec = 0.0;  // minSec + 1;
-  T diff = 1;
-  uint64_t i = get_bin_size + 1;
+  if (threshold <= lambda) return 0.0;
 
-  while (diff > T(epsilon) && num_balls >= i /*&& sec > minSec*/) {
-    sum +=
-        num_bins *
-        boost::math::binomial_coefficient<T>(int32_t(num_balls), int32_t(i)) *
-        boost::multiprecision::pow(T(1.0) / num_bins, i) *
-        boost::multiprecision::pow(1 - T(1.0) / num_bins, num_balls - i);
+  // Conservative Chernoff + union bound for the table-fallback path.
+  const long double ratio = threshold / lambda;
+  const long double h = ratio * std::log(ratio) - ratio + 1.0L;
+  const long double log_bound =
+      std::log(static_cast<long double>(num_bins)) - lambda * h;
 
-    T sec2 = boost::multiprecision::log2(sum);
-    diff = boost::multiprecision::abs(sec - sec2);
+  if (log_bound >= 0) return 0.0;
 
-    sec = sec2;
-
-    i++;
+  const long double sec = -log_bound / std::log(2.0L);
+  if (!std::isfinite(sec)) {
+    return std::numeric_limits<double>::max();
   }
-
-  return std::max<double>(0, static_cast<double>(-sec));
+  if (sec >= static_cast<long double>(std::numeric_limits<double>::max())) {
+    return std::numeric_limits<double>::max();
+  }
+  return static_cast<double>(std::max<long double>(0.0L, sec));
 }
 
 // log2(bin size) of mapping n balls to m bins, for 40 bit sec.

@@ -83,6 +83,7 @@ RUN git clone --depth 1 --branch v4.3.4 https://github.com/zeromq/libzmq.git && 
 WORKDIR /workspace
 RUN git clone ${YACL_REPO} . && git checkout ${YACL_REF}
 RUN python3 - <<'PY'
+import re
 from pathlib import Path
 
 p = Path("/workspace/bazel/repositories.bzl")
@@ -104,17 +105,92 @@ if '        type = "tar.gz",\n' not in s:
         1,
     )
 
-host_path = '    path = "/home/lgw/sp26/mPSI/out/install/linux",\n'
-image_path = '    path = "third_party/local_volepsi",\n'
-if host_path in s:
-    s = s.replace(host_path, image_path, 1)
+s, n = re.subn(
+    r'(name\s*=\s*"local_volepsi"\s*,[\s\S]*?)(\n\s*)path\s*=\s*"[^"]*"',
+    r'\1\2path = "third_party/local_volepsi"',
+    s,
+    count=1,
+)
+if n == 0 and 'name = "local_volepsi"' in s and 'path = "third_party/local_volepsi"' not in s:
+    raise SystemExit("local_volepsi path marker not found in /workspace/bazel/repositories.bzl")
 
 p.write_text(s)
 PY
 RUN rm -rf /workspace/examples/upsi
 COPY . /workspace/examples/upsi
 
-# simple_index.cc uses Boost header-only math/multiprecision components.
+# Add an opt-in portable base OT path for Docker builds. This keeps the image
+# runnable on hosts where the default Linux x86 asm base OT crashes before the
+# selected PSU backend is reached.
+RUN python3 - <<'PY'
+from pathlib import Path
+
+def replace_once(path, old, new, desc):
+    p = Path(path)
+    s = p.read_text()
+    if new in s:
+        return
+    if old not in s:
+        raise SystemExit(f"{desc} marker not found in {path}")
+    p.write_text(s.replace(old, new, 1))
+
+replace_once(
+    "/workspace/yacl/kernel/algorithms/base_ot.h",
+    '#if defined(__linux__) && defined(__x86_64)\n'
+    '#include "yacl/kernel/algorithms/x86_asm_ot_interface.h"\n'
+    '#else\n'
+    '#include "yacl/kernel/algorithms/portable_ot_interface.h"\n'
+    '#endif\n',
+    '#if defined(YACL_FORCE_PORTABLE_OT)\n'
+    '#include "yacl/kernel/algorithms/portable_ot_interface.h"\n'
+    '#elif defined(__linux__) && defined(__x86_64)\n'
+    '#include "yacl/kernel/algorithms/x86_asm_ot_interface.h"\n'
+    '#else\n'
+    '#include "yacl/kernel/algorithms/portable_ot_interface.h"\n'
+    '#endif\n',
+    "base_ot.h portable OT include",
+)
+
+replace_once(
+    "/workspace/yacl/kernel/algorithms/base_ot.cc",
+    '#if defined(__linux__) && defined(__x86_64)\n'
+    '  // x86 asm ot does not support macOS\n'
+    '  return std::make_unique<X86AsmOtInterface>();\n'
+    '#else\n'
+    '  return std::make_unique<PortableOtInterface>();\n'
+    '#endif\n',
+    '#if defined(YACL_FORCE_PORTABLE_OT)\n'
+    '  return std::make_unique<PortableOtInterface>();\n'
+    '#elif defined(__linux__) && defined(__x86_64)\n'
+    '  // x86 asm ot does not support macOS\n'
+    '  return std::make_unique<X86AsmOtInterface>();\n'
+    '#else\n'
+    '  return std::make_unique<PortableOtInterface>();\n'
+    '#endif\n',
+    "base_ot.cc portable OT branch",
+)
+
+replace_once(
+    "/workspace/yacl/kernel/algorithms/BUILD.bazel",
+    '        "@com_google_absl//absl/types:span",\n'
+    '    ] + select({\n',
+    '        "@com_google_absl//absl/types:span",\n'
+    '        ":portable_ot_interface",\n'
+    '    ] + select({\n',
+    "base_ot portable OT dependency",
+)
+
+replace_once(
+    "/workspace/yacl/kernel/algorithms/BUILD.bazel",
+    '        "//conditions:default": [\n'
+    '            ":portable_ot_interface",\n'
+    '        ],\n',
+    '        "//conditions:default": [],\n',
+    "base_ot default portable OT dependency",
+)
+PY
+
+# volePSI's CMake probes Boost when VOLE_PSI_ENABLE_BOOST=ON.
 RUN apt-get update && apt-get install -y --no-install-recommends libboost-dev && \
     rm -rf /var/lib/apt/lists/*
 
@@ -140,9 +216,11 @@ p = Path("/tmp/apsi/sender/apsi/sender_db.cpp")
 s = p.read_text()
 old = '                    futures[future_idx++] = tpm.thread_pool().enqueue([&]() {\n'
 new = '                    futures[future_idx++] = tpm.thread_pool().enqueue([&, bundle_idx]() {\n'
-if old not in s:
+if old in s:
+    s = s.replace(old, new, 1)
+elif new not in s:
     raise SystemExit("APSI remove-worker patch point not found")
-p.write_text(s.replace(old, new, 1))
+p.write_text(s)
 PY
 RUN mkdir -p /workspace/third_party/local_apsi_fixed && \
     cmake -S /tmp/apsi -B /tmp/apsi/build \
@@ -155,16 +233,19 @@ RUN mkdir -p /workspace/third_party/local_apsi_fixed && \
 # Ensure the cloned YACL workspace points local_volepsi at the in-image install
 # tree instead of a host-specific absolute path.
 RUN python3 - <<'PY'
+import re
 from pathlib import Path
 
 p = Path("/workspace/WORKSPACE")
 s = p.read_text()
-host_path = "/home/lgw/sp26/mPSI/out/install/linux"
-image_path = "third_party/local_volepsi"
 
-if host_path in s:
-    s = s.replace(host_path, image_path)
-elif image_path not in s:
+s, n = re.subn(
+    r'(name\s*=\s*"local_volepsi"\s*,[\s\S]*?)(\n\s*)path\s*=\s*"[^"]*"',
+    r'\1\2path = "third_party/local_volepsi"',
+    s,
+    count=1,
+)
+if n == 0 and 'path = "third_party/local_volepsi"' not in s:
     raise SystemExit("local_volepsi path marker not found in /workspace/WORKSPACE")
 
 p.write_text(s)
@@ -176,6 +257,7 @@ RUN bazel --bazelrc=/dev/null build \
     --noenable_bzlmod \
     --cxxopt=-std=c++17 \
     --host_cxxopt=-std=c++17 \
+    --copt=-DYACL_FORCE_PORTABLE_OT \
     //examples/upsi:upsi
 
 # Final runtime image

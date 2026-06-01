@@ -1,15 +1,14 @@
 #include "SimpleIndex.h"
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <random>
 #include <numeric>
+#include <stdexcept>
 #include "cryptoTools/Crypto/PRNG.h"
 #include "cryptoTools/Common/Log.h"
 #include "cryptoTools/Common/CuckooIndex.h"
 #include <cassert>
-
-#ifdef ENABLE_BOOST
-#include <boost/math/special_functions/binomial.hpp>
-#include <boost/multiprecision/cpp_bin_float.hpp>
-#endif
 
 namespace volePSI
 {
@@ -39,43 +38,38 @@ namespace volePSI
     // template<unsigned int N = 16>
     double getBinOverflowProb(u64 numBins, u64 numBalls, u64 getBinSize, double epsilon = 0.0001)
     {
-#ifdef ENABLE_BOOST
+        (void)epsilon;
+
+        if (numBins == 0)
+            throw std::invalid_argument("numBins must be non-zero. " LOCATION);
 
         if (numBalls <= getBinSize)
             return std::numeric_limits<double>::max();
 
-        if (numBalls > std::numeric_limits<i32>::max())
-        {
-            auto msg = ("boost::math::binomial_coefficient(...) only supports " + std::to_string(sizeof(unsigned) * 8) + " bit inputs which was exceeded." LOCATION);
-            std::cout << msg << std::endl;
-            throw std::runtime_error(msg);
-        }
+        const long double lambda =
+            static_cast<long double>(numBalls) / static_cast<long double>(numBins);
+        const long double threshold = static_cast<long double>(getBinSize) + 1.0L;
+        if (lambda <= 0)
+            return std::numeric_limits<double>::max();
 
-        // std::cout << numBalls << " " << numBins << " " << binSize << std::endl;
-        typedef boost::multiprecision::number<boost::multiprecision::backends::cpp_bin_float<16>> T;
-        T sum = 0.0;
-        T sec = 0.0; // minSec + 1;
-        T diff = 1;
-        u64 i = getBinSize + 1;
+        if (threshold <= lambda)
+            return 0.0;
 
-        while (diff > T(epsilon) && numBalls >= i /*&& sec > minSec*/)
-        {
-            sum += numBins * boost::math::binomial_coefficient<T>(i32(numBalls), i32(i)) * boost::multiprecision::pow(T(1.0) / numBins, i) * boost::multiprecision::pow(1 - T(1.0) / numBins, numBalls - i);
+        // Conservative Chernoff + union bound for the table-fallback path.
+        const long double ratio = threshold / lambda;
+        const long double h = ratio * std::log(ratio) - ratio + 1.0L;
+        const long double logBound =
+            std::log(static_cast<long double>(numBins)) - lambda * h;
 
-            // std::cout << "sum[" << i << "] " << sum << std::endl;
+        if (logBound >= 0)
+            return 0.0;
 
-            T sec2 = boost::multiprecision::log2(sum);
-            diff = boost::multiprecision::abs(sec - sec2);
-            // std::cout << diff << std::endl;
-            sec = sec2;
-
-            i++;
-        }
-
-        return std::max<double>(0, (double)-sec);
-#else
-        throw std::runtime_error("getBinOverflowProb requires ENABLE_BOOST. " LOCATION);
-#endif
+        const long double sec = -logBound / std::log(2.0L);
+        if (!std::isfinite(sec))
+            return std::numeric_limits<double>::max();
+        if (sec >= static_cast<long double>(std::numeric_limits<double>::max()))
+            return std::numeric_limits<double>::max();
+        return static_cast<double>(std::max<long double>(0.0L, sec));
     }
 
     namespace
