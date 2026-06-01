@@ -12,15 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//bazel:yacl.bzl", "AES_COPT_FLAGS", "yacl_cc_library", "yacl_cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load("//bazel:yacl.bzl", "AES_COPT_FLAGS", "yacl_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
 IBLT_PSU_COPTS = [
+    "-O3",
     "-std=c++20",
     "-fcoroutines",
     "-fopenmp",
+    "-Wall",
+    "-Wextra",
+    "-march=native",
+    "-ftree-vectorize",
+    "-maes",
+    "-mpclmul",
     "-msse2",
     "-msse3",
     "-msse4.1",
@@ -38,6 +45,7 @@ cc_library(
     ],
     hdrs = [
         "psu.h",
+        "iblt_based_psu/ankerl/unordered_dense.h",
         "iblt_based_psu/iblt_h5.hpp",
         "iblt_based_psu/psu.h",
         "iblt_based_psu/unordered_dense_compat.h",
@@ -108,5 +116,18 @@ yacl_cc_library(
         "//yacl/base:exception",
         "//yacl/base:int128",
         "//yacl/link",
+    ],
+)
+
+cc_test(
+    name = "iblt_psu_smoke_test",
+    size = "small",
+    srcs = [
+        "iblt_psu_smoke_test.cc",
+    ],
+    deps = [
+        ":psu",
+        "//yacl/base:int128",
+        "//yacl/link:test_util",
     ],
 )

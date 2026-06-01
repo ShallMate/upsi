@@ -17,10 +17,12 @@
 #include <apsi/network/channel.h>
 #include <apsi/network/stream_channel.h>
 #include <apsi/sender.h>
+#include <apsi/thread_pool_mgr.h>
 
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -40,6 +42,26 @@ inline std::vector<std::string> ItemsToStr(const std::vector<uint128_t>& items) 
   });
   return ret;
 }
+
+inline std::mutex& ApsiDeleteThreadPoolMutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
+class ScopedApsiThreadCount {
+ public:
+  explicit ScopedApsiThreadCount(size_t thread_count)
+      : previous_(apsi::ThreadPoolMgr::GetThreadCount()) {
+    apsi::ThreadPoolMgr::SetThreadCount(thread_count);
+  }
+
+  ~ScopedApsiThreadCount() {
+    apsi::ThreadPoolMgr::SetThreadCount(previous_);
+  }
+
+ private:
+  size_t previous_;
+};
 
 class APSI {
  public:
@@ -86,7 +108,9 @@ class APSI {
     // We need to convert the strings to Item objects
     std::vector<apsi::Item> sender_items(raw_sender_items_str.begin(),
                                          raw_sender_items_str.end());
-    // Insert the items in the SenderDB
+    // APSI v0.11 remove can abort under its parallel bundle removal path.
+    std::lock_guard<std::mutex> lock(ApsiDeleteThreadPoolMutex());
+    ScopedApsiThreadCount single_thread_remove(1);
     sender_db->remove(sender_items);
   }
 

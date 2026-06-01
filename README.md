@@ -289,6 +289,33 @@ bazel build //examples/upsi:upsi
 If you want to apply the `bundle_idx` fix manually, edit
 `sender/apsi/sender_db.cpp` first and then rebuild/install APSI as above.
 
+This checkout also keeps a runtime guard in `aPSI.h`: `APSI::deleteItems()`
+temporarily sets APSI's thread pool size to 1 while calling
+`SenderDB::remove()`, then restores the previous thread count. This avoids the
+same `failed to remove item` abort if APSI's parallel remove path is still
+linked in or if a stale local APSI build is accidentally reused. The guarded
+delete only handles the small update deletion set in `RunUPSIv1()` (`2^9`
+items by default), so it should not materially affect the UPSI benchmark.
+
+After changing either the APSI source patch or the `aPSI.h` guard, rebuild and
+rerun a short stability check:
+
+```bash
+cmake --build /path/to/APSI-0.11.0/build-fixed --target install -j$(nproc)
+
+bazel build --copt=-DYACL_FORCE_PORTABLE_OT //examples/upsi:upsi
+
+./examples/upsi/run_benchmarks.sh \
+  --backends=iblt,krtw \
+  --scenarios=LAN \
+  --repeats=3 \
+  --skip-build
+```
+
+`--copt=-DYACL_FORCE_PORTABLE_OT` is only needed on machines where the default
+Linux x86 asm base OT path crashes before the PSU backend is reached. It is
+separate from the APSI delete fix.
+
 If you want to use a different APSI install prefix, update the `local_apsi`
 `path` in `WORKSPACE` accordingly and rebuild.
 

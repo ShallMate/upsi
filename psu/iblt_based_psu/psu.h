@@ -25,14 +25,13 @@ namespace psu {
     inline size_t max_num_bin_probes(size_t iblt_tab_len, size_t num_iblt_hash_funcs, size_t sender_set_size, size_t recvr_set_size) {
         size_t max_union_set_size = sender_set_size + recvr_set_size;
 
-        // Strict Fig.5-style probing budget:
-        // round-0 probes full table, and each newly peeled item can enqueue all k hashes.
-        return iblt_tab_len + max_union_set_size * num_iblt_hash_funcs;
+        // Round 0 probes the full table. Later rounds de-duplicate probes and
+        // each peeled item can add at most k - 1 fresh bins.
+        return iblt_tab_len + max_union_set_size * (num_iblt_hash_funcs - 1);
     }
 
     inline size_t max_num_bin_probes_per_round(iblt_5h& iblt) {
-        // In one peel round, up to tab_len items may be peeled, each contributing k probes.
-        return iblt.tab_len * iblt_5h::NUM_HASH_FUNCS;
+        return iblt.tab_len;
     }
 
     struct Sender {
