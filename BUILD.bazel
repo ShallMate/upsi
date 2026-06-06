@@ -19,30 +19,28 @@ package(default_visibility = ["//visibility:public"])
 cc_binary(
     name = "upsi",
     srcs = [
-            "main.cc",
-            "upsi.h",
-            "upsi.cc",
-            "aPSI.h",
-            "aPSI.cc",
-            "yacl_link_channel.h",
-            ],
+        "aPSI.cc",
+        "aPSI.h",
+        "main.cc",
+        "upsi.cc",
+        "upsi.h",
+        "yacl_link_channel.h",
+    ],
+    copts = [
+        "-O3",
+        "-maes",
+        "-mpclmul",
+    ],
     deps = [
-        "//yacl/link",
-        "//examples/upsi/rr22/okvs:baxos",
-        "//examples/upsi/rr22:rr22",
-        "//examples/upsi/psu:psu",
         "//examples/upsi/ecdhpsi:ecdh_psi",
+        "//examples/upsi/psu",
+        "//examples/upsi/rr22",
+        "//examples/upsi/rr22/okvs:baxos",
         "//yacl/base:int128",
         "//yacl/crypto/hash:blake3",
-        "//yacl/utils:parallel",
         "//yacl/crypto/hash:hash_utils",
-        "@local_apsi//:apsi",  
+        "//yacl/link",
+        "//yacl/utils:parallel",
+        "@local_apsi//:apsi",
     ],
-    copts = ["-O3",
-             "-maes",
-             "-mpclmul"],
 )
-
-
-
-

@@ -44,7 +44,6 @@ cc_library(
         "iblt_based_psu/volePSI/SimpleIndex.cpp",
     ],
     hdrs = [
-        "psu.h",
         "iblt_based_psu/ankerl/unordered_dense.h",
         "iblt_based_psu/iblt_h5.hpp",
         "iblt_based_psu/psu.h",
@@ -55,18 +54,19 @@ cc_library(
         "iblt_based_psu/volePSI/PxUtil.h",
         "iblt_based_psu/volePSI/RsOprf.h",
         "iblt_based_psu/volePSI/SimpleIndex.h",
+        "psu.h",
     ],
     copts = AES_COPT_FLAGS + IBLT_PSU_COPTS,
-    deps = [
-        "@local_volepsi//:headers",
-        "@local_volepsi//:support_libs",
-    ],
     linkopts = [
         "-fopenmp",
         "-lssl",
         "-lcrypto",
         "-ldl",
         "-lpthread",
+    ],
+    deps = [
+        "@local_volepsi//:headers",
+        "@local_volepsi//:support_libs",
     ],
 )
 
@@ -77,6 +77,10 @@ yacl_cc_library(
     ],
     hdrs = [
         "krtw19_psu.h",
+    ],
+    copts = [
+        "-maes",
+        "-mpclmul",
     ],
     deps = [
         "//yacl/base:exception",
@@ -90,16 +94,24 @@ yacl_cc_library(
         "//yacl/math/f2k",
         "@com_google_absl//absl/types:span",
     ],
-    copts = ["-maes", "-mpclmul"],
 )
 
 yacl_cc_library(
-    name = "psu",
-    srcs = [
-        "psu.cc",
-    ],
+    name = "psu_api",
     hdrs = [
         "psu.h",
+    ],
+    deps = [
+        "//yacl:secparam",
+        "//yacl/base:int128",
+        "//yacl/link",
+    ],
+)
+
+yacl_cc_library(
+    name = "psu_iblt_backend",
+    srcs = [
+        "iblt_psu.cc",
     ],
     copts = AES_COPT_FLAGS + [
         "-std=c++20",
@@ -110,12 +122,53 @@ yacl_cc_library(
         "-mavx2",
     ],
     deps = [
+        ":psu_api",
         ":iblt_psu_impl",
-        ":krtw19_psu_lib",
-        "//yacl:secparam",
         "//yacl/base:exception",
-        "//yacl/base:int128",
-        "//yacl/link",
+        "//yacl/utils:serialize",
+    ],
+)
+
+yacl_cc_library(
+    name = "psu_krtw_backend",
+    srcs = [
+        "krtw_psu_adapter.cc",
+    ],
+    deps = [
+        ":krtw19_psu_lib",
+        ":psu_api",
+        "//yacl/base:exception",
+        "//yacl/utils:serialize",
+    ],
+)
+
+yacl_cc_library(
+    name = "psu",
+    srcs = [
+        "psu.cc",
+    ],
+    defines = [
+        "UPSI_PSU_ENABLE_KRTW",
+    ],
+    deps = [
+        ":psu_api",
+        "//yacl/base:exception",
+        ":psu_krtw_backend",
+    ],
+)
+
+yacl_cc_library(
+    name = "psu_iblt",
+    srcs = [
+        "psu.cc",
+    ],
+    defines = [
+        "UPSI_PSU_ENABLE_IBLT",
+    ],
+    deps = [
+        ":psu_api",
+        ":psu_iblt_backend",
+        "//yacl/base:exception",
     ],
 )
 
@@ -125,8 +178,11 @@ cc_test(
     srcs = [
         "iblt_psu_smoke_test.cc",
     ],
+    linkopts = [
+        "-no-pie",
+    ],
     deps = [
-        ":psu",
+        ":psu_iblt",
         "//yacl/base:int128",
         "//yacl/link:test_util",
     ],

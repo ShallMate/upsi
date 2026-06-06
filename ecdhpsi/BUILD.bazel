@@ -28,14 +28,12 @@ yacl_cc_library(
         "receiver.h",
         "sender.h",
     ],
+    copts = [
+        "-maes",
+        "-mpclmul",
+    ],
     deps = [
         "//yacl/crypto/ecc",
         "//yacl/link",
     ],
-    copts = ["-maes", "-mpclmul"],
 )
-
-
-
-
-

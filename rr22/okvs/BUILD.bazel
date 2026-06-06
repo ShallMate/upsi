@@ -35,9 +35,9 @@ yacl_cc_test(
     srcs = ["baxos_test.cc"],
     deps = [
         ":baxos",
-        "@com_google_absl//absl/strings",
         "//yacl/crypto/rand",
         "//yacl/crypto/tools:prg",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -60,9 +60,9 @@ yacl_cc_test(
     srcs = ["paxos_test.cc"],
     deps = [
         ":paxos",
-        "@com_google_absl//absl/strings",
         "//yacl/crypto/rand",
         "//yacl/crypto/tools:prg",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -77,10 +77,10 @@ yacl_cc_library(
     deps = [
         ":aes_crhash",
         ":galois128",
-        "@com_github_ridiculousfish_libdivide//:libdivide",
-        "@com_google_absl//absl/types:span",
         "//yacl/math:gadget",
         "//yacl/utils:platform_utils",
+        "@com_github_ridiculousfish_libdivide//:libdivide",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -99,8 +99,8 @@ yacl_cc_library(
     hdrs = ["paxos_utils.h"],
     deps = [
         ":galois128",
-        "@com_google_absl//absl/types:span",
         "//yacl/crypto/tools:prg",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -120,8 +120,8 @@ yacl_cc_test(
     deps = [
         ":aes_crhash",
         ":galois128",
-        "@com_google_absl//absl/strings",
         "//yacl/crypto/tools:prg",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -136,11 +136,11 @@ yacl_cc_library(
         "//conditions:default": [],
     }),
     deps = [
-        "@com_google_absl//absl/strings",
         "//yacl/base:block",
         "//yacl/base:int128",
         "//yacl/link",
         "//yacl/utils:platform_utils",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -149,9 +149,9 @@ yacl_cc_test(
     srcs = ["galois128_test.cc"],
     deps = [
         ":galois128",
-        "@com_google_absl//absl/strings",
         "//yacl/crypto/rand",
         "//yacl/crypto/tools:prg",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -161,8 +161,8 @@ yacl_cc_library(
     hdrs = ["dense_mtx.h"],
     deps = [
         ":galois128",
-        "@com_google_absl//absl/types:span",
         "//yacl/crypto/tools:prg",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -180,8 +180,8 @@ yacl_cc_test(
     srcs = ["main.cc"],
     deps = [
         ":baxos",
-        "@com_google_absl//absl/strings",
         "//yacl/crypto/rand",
         "//yacl/crypto/tools:prg",
+        "@com_google_absl//absl/strings",
     ],
 )

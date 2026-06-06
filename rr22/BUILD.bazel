@@ -19,15 +19,18 @@ package(default_visibility = ["//visibility:public"])
 yacl_cc_library(
     name = "rr22",
     srcs = [
-        "rr22.h",
         "rr22.cc",
+        "rr22.h",
     ],
     hdrs = ["rr22.h"],
-    deps = [
-        "//examples/upsi/rr22/okvs:galois128",
-        "//examples/upsi/rr22/okvs:baxos",
-        "//yacl/kernel/algorithms:silent_vole",
-        "//yacl/link:test_util"
+    copts = [
+        "-maes",
+        "-mpclmul",
     ],
-    copts = ["-maes", "-mpclmul"],
+    deps = [
+        "//examples/upsi/rr22/okvs:baxos",
+        "//examples/upsi/rr22/okvs:galois128",
+        "//yacl/kernel/algorithms:silent_vole",
+        "//yacl/link:test_util",
+    ],
 )
