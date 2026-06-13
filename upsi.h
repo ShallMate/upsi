@@ -15,6 +15,7 @@
 #pragma once
 
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "examples/upsi/aPSI.h"
@@ -49,11 +50,11 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
                                 std::set<uint128_t> intersection_sender);
 
 std::vector<uint128_t> UPsiRecvV1(
-    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& x,
+    const std::shared_ptr<yacl::link::Context>& ctx,
     std::vector<uint128_t>& xadd, std::vector<uint128_t>& xsub,
     APSI& instance_x, std::set<uint128_t> intersection_receiver);
 
 std::vector<uint128_t> UPsiSendV1(
-    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& y,
+    const std::shared_ptr<yacl::link::Context>& ctx,
     std::vector<uint128_t>& yadd, std::vector<uint128_t>& ysub,
     APSI& instance_y, std::set<uint128_t> intersection_sender);

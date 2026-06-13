@@ -21,6 +21,19 @@ Run the binary:
 bazel-bin/examples/upsi/upsi
 ```
 
+Set the number of update rounds:
+
+```bash
+bazel-bin/examples/upsi/upsi --update-count=5
+```
+
+Use the default BRPC link backend for networked runs, or the in-memory backend
+for local functional checks:
+
+```bash
+bazel-bin/examples/upsi/upsi --link=memory --update-count=2
+```
+
 The repository default also works:
 
 ```bash
@@ -72,6 +85,9 @@ You can also set the backend through an environment variable:
 UPSI_PSU_BACKEND=krtw bazel-bin/examples/upsi/upsi
 ```
 
+The update count can also be set through `UPSI_UPDATE_COUNT`.
+The link backend can be set through `UPSI_LINK_BACKEND`.
+
 The IBLT PSU implementation is kept under `examples/upsi/psu` and can be built
 or tested through its own targets while working on that backend.
 
@@ -111,6 +127,7 @@ Useful options:
 ```bash
 ./run_benchmarks.sh --help
 ./run_benchmarks.sh --backends=krtw --scenarios=WAN_5Mbps --repeats=1
+./run_benchmarks.sh --update-count=5 --backends=krtw --scenarios=LAN --repeats=1
 ./run_benchmarks.sh --skip-build
 ./run_benchmarks.sh --output-dir=./benchmark_logs/manual_run
 ```

@@ -7,6 +7,8 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 NETWORK_SETUP="${SCRIPT_DIR}/network_setup.sh"
 DEFAULT_OUTPUT_ROOT="${SCRIPT_DIR}/benchmark_logs"
 DEFAULT_REPEATS=5
+DEFAULT_UPDATE_COUNT=1
+DEFAULT_LINK_BACKEND=brpc
 
 declare -a DEFAULT_BACKENDS=("krtw" "iblt")
 declare -a DEFAULT_SCENARIOS=("LAN" "WAN_200Mbps" "WAN_50Mbps" "WAN_5Mbps")
@@ -25,6 +27,8 @@ declare -A RATE_MBIT=(
 
 OUTPUT_DIR=""
 REPEATS="${DEFAULT_REPEATS}"
+UPDATE_COUNT="${DEFAULT_UPDATE_COUNT}"
+LINK_BACKEND="${DEFAULT_LINK_BACKEND}"
 SKIP_BUILD=0
 declare -a BACKENDS=("${DEFAULT_BACKENDS[@]}")
 declare -a SCENARIOS=("${DEFAULT_SCENARIOS[@]}")
@@ -35,6 +39,8 @@ Usage: $(basename "$0") [options]
 
 Options:
   --repeats=N              Number of runs per backend/scenario pair.
+  --update-count=N         Number of UPSI update rounds per binary run.
+  --link=brpc|memory       Link backend used by the UPSI binary.
   --backends=a,b           Comma-separated backends: krtw,iblt.
   --scenarios=a,b          Comma-separated scenarios: LAN,WAN_200Mbps,WAN_50Mbps,WAN_5Mbps.
   --output-dir=PATH        Output directory for logs and summary files.
@@ -87,6 +93,16 @@ validate_inputs() {
     echo "--repeats must be a positive integer" >&2
     exit 1
   fi
+
+  if ! [[ "${UPDATE_COUNT}" =~ ^[0-9]+$ ]] || [[ "${UPDATE_COUNT}" -lt 1 ]]; then
+    echo "--update-count must be a positive integer" >&2
+    exit 1
+  fi
+
+  if [[ "${LINK_BACKEND}" != "brpc" && "${LINK_BACKEND}" != "memory" ]]; then
+    echo "--link must be brpc or memory" >&2
+    exit 1
+  fi
 }
 
 ensure_namespace() {
@@ -112,6 +128,12 @@ parse_args() {
     case "$1" in
       --repeats=*)
         REPEATS="${1#*=}"
+        ;;
+      --update-count=*)
+        UPDATE_COUNT="${1#*=}"
+        ;;
+      --link=*)
+        LINK_BACKEND="${1#*=}"
         ;;
       --backends=*)
         split_csv "${1#*=}" BACKENDS
@@ -280,7 +302,10 @@ run_single_benchmark() {
   set +e
   (
     cd "${REPO_ROOT}" &&
-      UPSI_PSU_BACKEND="${backend}" bazel-bin/examples/upsi/upsi
+      UPSI_PSU_BACKEND="${backend}" \
+        bazel-bin/examples/upsi/upsi \
+          --update-count="${UPDATE_COUNT}" \
+          --link="${LINK_BACKEND}"
   ) >"${log_file}" 2>&1
   exit_code=$?
   set -e
@@ -352,6 +377,8 @@ write_summary_files() {
     echo "- Generated at: $(date +'%F %T')"
     echo "- Output directory: \`${OUTPUT_DIR}\`"
     echo "- Repeats per backend/scenario pair: \`${REPEATS}\`"
+    echo "- Update rounds per binary run: \`${UPDATE_COUNT}\`"
+    echo "- Link backend: \`${LINK_BACKEND}\`"
     echo "- Backends: \`${BACKENDS[*]}\`"
     echo "- Scenarios: \`${SCENARIOS[*]}\`"
     echo
@@ -423,6 +450,8 @@ main() {
   log_msg "Backends: ${BACKENDS[*]}"
   log_msg "Scenarios: ${SCENARIOS[*]}"
   log_msg "Repeats: ${REPEATS}"
+  log_msg "Update count: ${UPDATE_COUNT}"
+  log_msg "Link backend: ${LINK_BACKEND}"
   log_msg "IBLT caveat: network shaping does not cover the internal in-process PSU socket path."
 
   build_binary
