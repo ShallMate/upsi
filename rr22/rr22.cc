@@ -13,15 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "examples/upsi/rr22/rr22.h"
+#include "rr22/rr22.h"
 
 #include <iostream>
 #include <vector>
 
-#include "examples/upsi/rr22/okvs/galois128.h"
-#include "yacl/base/int128.h"
-#include "yacl/kernel/algorithms/silent_vole.h"
-#include "yacl/utils/parallel.h"
+#include "runtime/vole.h"
+#include "runtime/types.h"
 
 namespace rr22 {
 
@@ -29,7 +27,7 @@ std::vector<uint128_t> GetIntersection(std::vector<int32_t> z,
                                        std::vector<uint128_t> y,
                                        uint32_t z_size) {
   std::vector<uint128_t> intersection(z_size);
-  yacl::parallel_for(0, z_size, [&](size_t begin, size_t end) {
+  upsi_runtime::parallel_for(0, z_size, [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       intersection[idx] = y[z[idx]];
     }
@@ -42,7 +40,7 @@ inline std::vector<int32_t> GetIntersectionIdx(
   std::set<uint128_t> set(x.begin(), x.end());
   std::vector<int32_t> ret(y.size(), -1);  // 初始化为 -1
 
-  yacl::parallel_for(0, y.size(), [&](size_t start, size_t end) {
+  upsi_runtime::parallel_for(0, y.size(), [&](size_t start, size_t end) {
     for (size_t i = start; i < end; ++i) {
       if (set.count(y[i]) != 0) {
         ret[i] = i;
@@ -57,45 +55,43 @@ inline std::vector<int32_t> GetIntersectionIdx(
 }
 
 std::vector<uint128_t> RR22PsiRecv(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     std::vector<uint128_t>& elem_hashes, okvs::Baxos baxos) {
   uint128_t okvssize = baxos.size();
 
   // VOLE
-  ctx->SendAsync(ctx->NextRank(), yacl::SerializeUint128(okvssize),
+  ctx->SendAsync(ctx->NextRank(), upsi_runtime::SerializeUint128(okvssize),
                  "baxos.size");
   // VOLE
-  const auto codetype = yacl::crypto::CodeType::Silver5;
   std::vector<uint128_t> a(okvssize);
   std::vector<uint128_t> c(okvssize);
   auto volereceiver = std::async([&] {
-    auto sv_receiver = yacl::crypto::SilentVoleReceiver(codetype);
-    sv_receiver.Recv(ctx, absl::MakeSpan(a), absl::MakeSpan(c));
+    upsi_runtime::crypto::VoleReceive(*ctx, a, c);
   });
 
   // Encode
   std::vector<uint128_t> p(okvssize);
-  baxos.Solve(absl::MakeSpan(elem_hashes), absl::MakeSpan(elem_hashes),
-              absl::MakeSpan(p), nullptr, 8);
+  baxos.Solve(upsi_runtime::MakeSpan(elem_hashes), upsi_runtime::MakeSpan(elem_hashes),
+              upsi_runtime::MakeSpan(p), nullptr, upsi_runtime::parallel_threads.load());
   volereceiver.get();
 
   std::vector<uint128_t> aprime(okvssize);
 
-  yacl::parallel_for(0, aprime.size(), [&](int64_t begin, int64_t end) {
+  upsi_runtime::parallel_for(0, aprime.size(), [&](int64_t begin, int64_t end) {
     for (int64_t idx = begin; idx < end; ++idx) {
       aprime[idx] = a[idx] ^ p[idx];
     }
   });
   ctx->SendAsync(
       ctx->NextRank(),
-      yacl::ByteContainerView(aprime.data(), aprime.size() * sizeof(uint128_t)),
+      upsi_runtime::ByteContainerView(aprime.data(), aprime.size() * sizeof(uint128_t)),
       "Send A' = P+A");
   std::vector<uint128_t> receivermasks(elem_hashes.size());
-  baxos.Decode(absl::MakeSpan(elem_hashes), absl::MakeSpan(receivermasks),
-               absl::MakeSpan(c), 8);
+  baxos.Decode(upsi_runtime::MakeSpan(elem_hashes), upsi_runtime::MakeSpan(receivermasks),
+               upsi_runtime::MakeSpan(c), upsi_runtime::parallel_threads.load());
   std::vector<uint128_t> sendermasks(elem_hashes.size());
   auto buf = ctx->Recv(ctx->PrevRank(), "Receive masks of sender");
-  YACL_ENFORCE(buf.size() == int64_t(elem_hashes.size() * sizeof(uint128_t)));
+  UPSI_ENFORCE(buf.size() == int64_t(elem_hashes.size() * sizeof(uint128_t)));
   std::memcpy(sendermasks.data(), buf.data(), buf.size());
 
   auto z = GetIntersectionIdx(sendermasks, receivermasks);
@@ -107,57 +103,53 @@ std::vector<uint128_t> RR22PsiRecv(
   auto psi_result = GetIntersection(z, elem_hashes, z.size());
 
   ctx->SendAsync(ctx->NextRank(),
-                 yacl::ByteContainerView(psi_result.data(),
+                 upsi_runtime::ByteContainerView(psi_result.data(),
                                          psi_result.size() * sizeof(uint128_t)),
                  "Send intersection");
   return psi_result;
 }
 
 std::vector<uint128_t> RR22PsiSend(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     std::vector<uint128_t>& elem_hashes, okvs::Baxos baxos) {
   size_t okvssize =
       DeserializeUint128(ctx->Recv(ctx->PrevRank(), "baxos.size"));
-  const auto codetype = yacl::crypto::CodeType::Silver5;
   std::vector<uint128_t> b(okvssize);
   uint128_t delta = 0;
   auto volesender = std::async([&] {
-    auto sv_sender = yacl::crypto::SilentVoleSender(codetype);
-    sv_sender.Send(ctx, absl::MakeSpan(b));
-    delta = sv_sender.GetDelta();
+    delta = upsi_runtime::crypto::VoleSend(*ctx, b);
   });
   volesender.get();
   std::vector<uint128_t> aprime(okvssize);
   auto buf = ctx->Recv(ctx->PrevRank(), "Receive A' = P+A");
-  YACL_ENFORCE(buf.size() == int64_t(okvssize * sizeof(uint128_t)));
+  UPSI_ENFORCE(buf.size() == int64_t(okvssize * sizeof(uint128_t)));
   std::memcpy(aprime.data(), buf.data(), buf.size());
-  okvs::Galois128 delta_gf128(delta);
   std::vector<uint128_t> k(okvssize);
-  yacl::parallel_for(0, okvssize, [&](int64_t begin, int64_t end) {
+  upsi_runtime::parallel_for(0, okvssize, [&](int64_t begin, int64_t end) {
     for (int64_t idx = begin; idx < end; ++idx) {
-      k[idx] = b[idx] ^ (delta_gf128 * aprime[idx]).get<uint128_t>(0);
+      k[idx] = b[idx] ^ upsi_runtime::crypto::GfMul128(delta, aprime[idx]);
     }
   });
   std::vector<uint128_t> sendermasks(elem_hashes.size());
-  baxos.Decode(absl::MakeSpan(elem_hashes), absl::MakeSpan(sendermasks),
-               absl::MakeSpan(k), 8);
-  yacl::parallel_for(0, elem_hashes.size(), [&](int64_t begin, int64_t end) {
+  baxos.Decode(upsi_runtime::MakeSpan(elem_hashes), upsi_runtime::MakeSpan(sendermasks),
+               upsi_runtime::MakeSpan(k), upsi_runtime::parallel_threads.load());
+  upsi_runtime::parallel_for(0, elem_hashes.size(), [&](int64_t begin, int64_t end) {
     for (int64_t idx = begin; idx < end; ++idx) {
       sendermasks[idx] =
-          sendermasks[idx] ^ (delta_gf128 * elem_hashes[idx]).get<uint128_t>(0);
+          sendermasks[idx] ^ upsi_runtime::crypto::GfMul128(delta, elem_hashes[idx]);
     }
   });
   ctx->SendAsync(
       ctx->NextRank(),
-      yacl::ByteContainerView(sendermasks.data(),
+      upsi_runtime::ByteContainerView(sendermasks.data(),
                               sendermasks.size() * sizeof(uint128_t)),
       "Send masks of sender");
-  yacl::Buffer size_data = ctx->Recv(ctx->PrevRank(), "intersection size");
+  upsi_runtime::Buffer size_data = ctx->Recv(ctx->PrevRank(), "intersection size");
 
   uint32_t z_size = *reinterpret_cast<uint32_t*>(size_data.data());
   std::vector<uint128_t> intersection(z_size);
   auto bufintersection = ctx->Recv(ctx->PrevRank(), "Receive intersection");
-  YACL_ENFORCE(bufintersection.size() == int64_t(z_size * sizeof(uint128_t)));
+  UPSI_ENFORCE(bufintersection.size() == int64_t(z_size * sizeof(uint128_t)));
   std::memcpy(intersection.data(), bufintersection.data(),
               bufintersection.size());
   return intersection;

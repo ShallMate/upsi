@@ -1,4 +1,4 @@
-#include "examples/upsi/psu/iblt_based_psu/iblt_h5.hpp"
+#include "psu/iblt_based_psu/iblt_h5.hpp"
 
 #include <algorithm>
 #include <cmath>

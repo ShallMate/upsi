@@ -4,10 +4,10 @@
 #include <cstdint>
 #include <vector>
 
-#include "examples/upsi/psu/iblt_based_psu/iblt_h5.hpp"
-#include "examples/upsi/psu/iblt_based_psu/unordered_dense_compat.h"
+#include "psu/iblt_based_psu/iblt_h5.hpp"
+#include "psu/iblt_based_psu/unordered_dense_compat.h"
 
-#include "examples/upsi/psu/iblt_based_psu/volePSI/RsOprf.h"
+#include "psu/iblt_based_psu/volePSI/RsOprf.h"
 #include "cryptoTools/Common/BitVector.h"
 #include "cryptoTools/Common/block.h"
 #include "cryptoTools/Crypto/AES.h"

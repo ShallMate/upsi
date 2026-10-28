@@ -18,11 +18,8 @@
 #include <memory>
 #include <vector>
 
-#include "yacl/base/int128.h"
-#include "yacl/crypto/ecc/ec_point.h"
-#include "yacl/crypto/ecc/ecc_spi.h"
-#include "yacl/link/link.h"
-#include "yacl/utils/parallel.h"
+#include "runtime/curve.h"
+#include "runtime/link.h"
 
 inline std::string uint128_to_string(uint128_t value) {
   if (value == 0) {
@@ -38,37 +35,36 @@ inline std::string uint128_to_string(uint128_t value) {
   return std::string(&buffer[pos]);
 }
 
-namespace yc = yacl::crypto;
+namespace yc = upsi_runtime::crypto;
 
 class EcdhSender {
  public:
   EcdhSender() {
-    // Use FourQ curve
-    ec_ = yc::EcGroupFactory::Instance().Create(/* curve name */ "FourQ");
+    ec_ = std::make_shared<yc::EcGroup>();
 
     // Generate random key
-    yc::MPInt::RandomLtN(ec_->GetOrder(), &sk_);
+    sk_ = yc::RandomScalar();
   }
 
   // Mask input strings with secret key, and outputs the EcPoint results
-  void MaskStrings(absl::Span<std::string> in, absl::Span<yc::EcPoint> out);
-  void MaskInputs(absl::Span<uint128_t> in, absl::Span<yc::EcPoint> out);
-  void MaskEcPoints(absl::Span<yc::EcPoint> in, absl::Span<yc::EcPoint> out);
-  void MaskEcPointsD(absl::Span<yc::EcPoint> in, absl::Span<std::string> out);
-  void PointstoBuffer(absl::Span<yc::EcPoint> in,
-                      absl::Span<std::uint8_t> buffer);
-  void BuffertoPoints(absl::Span<yc::EcPoint> in,
-                      absl::Span<std::uint8_t> buffer);
-  void BuffertoStrings(absl::Span<std::uint8_t> in,
-                       absl::Span<std::string> out);
-  void UpdatePRFs(absl::Span<uint128_t> in);
-  void DeletePRFs(absl::Span<uint128_t> in);
-  void EcdhPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
+  void MaskStrings(upsi_runtime::Span<std::string> in, upsi_runtime::Span<yc::EcPoint> out);
+  void MaskInputs(upsi_runtime::Span<uint128_t> in, upsi_runtime::Span<yc::EcPoint> out);
+  void MaskEcPoints(upsi_runtime::Span<yc::EcPoint> in, upsi_runtime::Span<yc::EcPoint> out);
+  void MaskEcPointsD(upsi_runtime::Span<yc::EcPoint> in, upsi_runtime::Span<std::string> out);
+  void PointstoBuffer(upsi_runtime::Span<yc::EcPoint> in,
+                      upsi_runtime::Span<std::uint8_t> buffer);
+  void BuffertoPoints(upsi_runtime::Span<yc::EcPoint> in,
+                      upsi_runtime::Span<std::uint8_t> buffer);
+  void BuffertoStrings(upsi_runtime::Span<std::uint8_t> in,
+                       upsi_runtime::Span<std::string> out);
+  void UpdatePRFs(upsi_runtime::Span<uint128_t> in);
+  void DeletePRFs(upsi_runtime::Span<uint128_t> in);
+  void EcdhPsiSend(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                    size_t size_receiver);
   uint32_t GetPRFSize();
 
  private:
-  yc::MPInt sk_;  // secret key
+  yc::Scalar sk_;  // secret key
   std::set<std::string> prfs_;
 
  public:

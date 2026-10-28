@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "examples/upsi/psu/psu.h"
+#include "psu/psu.h"
 
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <vector>
 
-#include "examples/upsi/psu/krtw19_psu.h"
-#include "yacl/base/exception.h"
-#include "yacl/utils/serialize.h"
+#include "psu/krtw19_psu.h"
+#include "runtime/types.h"
 
 namespace {
 
@@ -31,32 +30,32 @@ constexpr char kKrtwUnionPayloadTag[] = "krtw_psu_union_payload";
 }  // namespace
 
 std::vector<uint128_t> KrtwPsuSend(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes) {
   examples::psu::KrtwPsuSend(ctx, elem_hashes);
 
   const auto union_size = static_cast<size_t>(
-      yacl::DeserializeUint128(ctx->Recv(ctx->PrevRank(), kKrtwUnionSizeTag)));
+      upsi_runtime::DeserializeUint128(ctx->Recv(ctx->PrevRank(), kKrtwUnionSizeTag)));
   if (union_size == 0) {
     return {};
   }
 
   std::vector<uint128_t> union_items(union_size);
   auto union_buf = ctx->Recv(ctx->PrevRank(), kKrtwUnionPayloadTag);
-  YACL_ENFORCE(union_buf.size() == int64_t(union_size * sizeof(uint128_t)));
+  UPSI_ENFORCE(union_buf.size() == int64_t(union_size * sizeof(uint128_t)));
   std::memcpy(union_items.data(), union_buf.data(), union_buf.size());
   return union_items;
 }
 
 std::vector<uint128_t> KrtwPsuRecv(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes) {
   auto union_items = examples::psu::KrtwPsuRecv(ctx, elem_hashes);
-  ctx->SendAsync(ctx->NextRank(), yacl::SerializeUint128(union_items.size()),
+  ctx->SendAsync(ctx->NextRank(), upsi_runtime::SerializeUint128(union_items.size()),
                  kKrtwUnionSizeTag);
   if (!union_items.empty()) {
     ctx->SendAsync(ctx->NextRank(),
-                   yacl::ByteContainerView(
+                   upsi_runtime::ByteContainerView(
                        union_items.data(), union_items.size() * sizeof(uint128_t)),
                    kKrtwUnionPayloadTag);
   }

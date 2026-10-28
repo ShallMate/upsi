@@ -27,41 +27,19 @@
 #include <stdexcept>
 #include <string>
 
-#include "examples/upsi/yacl_link_channel.h"
-#include "yacl/crypto/hash/hash_utils.h"
-#include "yacl/link/context.h"
-#include "yacl/utils/parallel.h"
-#include "yacl/utils/serialize.h"
+#include "apsi_link_channel.h"
+#include "runtime/types.h"
+#include "runtime/link.h"
 
 inline std::vector<std::string> ItemsToStr(const std::vector<uint128_t>& items) {
   std::vector<std::string> ret(items.size());
-  yacl::parallel_for(0, items.size(), [&](size_t begin, size_t end) {
+  upsi_runtime::parallel_for(0, items.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
-      ret[idx] = yacl::SerializeUint128(items[idx]);
+      ret[idx] = upsi_runtime::SerializeUint128(items[idx]);
     }
   });
   return ret;
 }
-
-inline std::mutex& ApsiDeleteThreadPoolMutex() {
-  static std::mutex mutex;
-  return mutex;
-}
-
-class ScopedApsiThreadCount {
- public:
-  explicit ScopedApsiThreadCount(size_t thread_count)
-      : previous_(apsi::ThreadPoolMgr::GetThreadCount()) {
-    apsi::ThreadPoolMgr::SetThreadCount(thread_count);
-  }
-
-  ~ScopedApsiThreadCount() {
-    apsi::ThreadPoolMgr::SetThreadCount(previous_);
-  }
-
- private:
-  size_t previous_;
-};
 
 class APSI {
  public:
@@ -85,9 +63,9 @@ class APSI {
     sender_db = std::make_shared<apsi::sender::SenderDB>(*params_);
   }
 
-  void UseLinkChannel(const std::shared_ptr<yacl::link::Context>& ctx,
+  void UseLinkChannel(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                       size_t peer_rank) {
-    channel_ = std::make_unique<apsi::network::YaclLinkChannel>(ctx, peer_rank);
+    channel_ = std::make_unique<apsi::network::CoprotoChannel>(ctx, peer_rank);
   }
 
   void printParams() const {
@@ -108,9 +86,6 @@ class APSI {
     // We need to convert the strings to Item objects
     std::vector<apsi::Item> sender_items(raw_sender_items_str.begin(),
                                          raw_sender_items_str.end());
-    // APSI v0.11 remove can abort under its parallel bundle removal path.
-    std::lock_guard<std::mutex> lock(ApsiDeleteThreadPoolMutex());
-    ScopedApsiThreadCount single_thread_remove(1);
     sender_db->remove(sender_items);
   }
 
@@ -132,6 +107,6 @@ class APSI {
   std::vector<uint128_t> RunQuery(
       apsi::sender::Query query,
       const std::pair<std::vector<apsi::HashedItem>,
-                      std::vector<apsi::LabelKey>>& receiver_oprf_items,
+                      apsi::LabelKeyVector>& receiver_oprf_items,
       std::vector<uint128_t>& items);
 };

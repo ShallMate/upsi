@@ -17,20 +17,13 @@
 #include <memory>
 #include <vector>
 
-#include "yacl/base/int128.h"
-#include "yacl/link/link.h"
-#include "yacl/math/f2k/f2k.h"
-#include "yacl/secparam.h"
+#include "runtime/types.h"
+#include "runtime/field.h"
+#include "runtime/link.h"
 
 /* submodules */
-#include "yacl/crypto/hash/hash_utils.h"
-#include "yacl/crypto/rand/rand.h"
-#include "yacl/kernel/algorithms/base_ot.h"
-#include "yacl/kernel/algorithms/kkrt_ote.h"
-#include "yacl/kernel/algorithms/softspoken_ote.h"
 
 /* security parameter declaration */
-YACL_MODULE_DECLARE("krtw_psu", SecParam::C::k128, SecParam::S::k40);
 
 namespace examples::psu {
 
@@ -42,11 +35,11 @@ std::vector<uint64_t> Interpolate(const std::vector<uint64_t>& xs,
 // Scalable Private Set Union from Symmetric-Key Techniques
 // https://eprint.iacr.org/2019/776.pdf (Figure 10)
 
-void KrtwPsuSend(const std::shared_ptr<yacl::link::Context>& ctx,
+void KrtwPsuSend(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                  const std::vector<uint128_t>& elem_hashes);
 
 std::vector<uint128_t> KrtwPsuRecv(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes);
 
 }  // namespace examples::psu

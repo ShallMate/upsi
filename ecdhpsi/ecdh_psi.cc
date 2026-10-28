@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "examples/upsi/ecdhpsi/ecdh_psi.h"
+#include "ecdhpsi/ecdh_psi.h"
 
 #include <cstdint>
 #include <memory>
 #include <vector>
 
-#include "yacl/crypto/ecc/ec_point.h"
-#include "yacl/crypto/ecc/ecc_spi.h"
+#include "runtime/types.h"
 
 inline std::vector<size_t> GetIntersectionIdx(
     const std::vector<std::string>& x, const std::vector<std::string>& y) {
@@ -33,21 +32,21 @@ inline std::vector<size_t> GetIntersectionIdx(
   return ret;
 }
 
-void EcdhPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
+void EcdhPsiSend(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                  std::vector<std::string>& x, size_t size_y) {
   EcdhPsi alice;
   std::vector<yc::EcPoint> x_points(x.size());
-  alice.MaskStrings(absl::MakeSpan(x), absl::MakeSpan(x_points));
+  alice.MaskStrings(upsi_runtime::MakeSpan(x), upsi_runtime::MakeSpan(x_points));
 
   // Send H(id)^a
   uint64_t max_point_length = alice.ec_->GetSerializeLength();
   uint64_t total_length_x = max_point_length * x.size();
 
   std::vector<uint8_t> xbuffer(total_length_x);
-  alice.PointstoBuffer(absl::MakeSpan(x_points), absl::MakeSpan(xbuffer));
+  alice.PointstoBuffer(upsi_runtime::MakeSpan(x_points), upsi_runtime::MakeSpan(xbuffer));
   ctx->SendAsync(
       ctx->NextRank(),
-      yacl::ByteContainerView(xbuffer.data(), total_length_x * sizeof(uint8_t)),
+      upsi_runtime::ByteContainerView(xbuffer.data(), total_length_x * sizeof(uint8_t)),
       "Send H(id)^a");
 
   // Receive H(id)^b
@@ -55,28 +54,28 @@ void EcdhPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
   std::vector<uint8_t> ybuffer(total_length_y);
   std::vector<yc::EcPoint> y_points(size_y);
   auto bufypoints = ctx->Recv(ctx->PrevRank(), "Receive H(id)^b");
-  YACL_ENFORCE(bufypoints.size() == int64_t(total_length_y * sizeof(uint8_t)));
+  UPSI_ENFORCE(bufypoints.size() == int64_t(total_length_y * sizeof(uint8_t)));
   std::memcpy(ybuffer.data(), bufypoints.data(), bufypoints.size());
-  alice.BuffertoPoints(absl::MakeSpan(y_points), absl::MakeSpan(ybuffer));
+  alice.BuffertoPoints(upsi_runtime::MakeSpan(y_points), upsi_runtime::MakeSpan(ybuffer));
 
   std::vector<yc::EcPoint> y_mask(size_y);
   // y_str = y_points ^ {alice_sk}
-  alice.MaskEcPoints(absl::MakeSpan(y_points), absl::MakeSpan(y_mask));
+  alice.MaskEcPoints(upsi_runtime::MakeSpan(y_points), upsi_runtime::MakeSpan(y_mask));
   std::vector<uint8_t> maskbuffer(total_length_y);
-  alice.PointstoBuffer(absl::MakeSpan(y_mask), absl::MakeSpan(maskbuffer));
+  alice.PointstoBuffer(upsi_runtime::MakeSpan(y_mask), upsi_runtime::MakeSpan(maskbuffer));
 
   ctx->SendAsync(ctx->NextRank(),
-                 yacl::ByteContainerView(maskbuffer.data(),
+                 upsi_runtime::ByteContainerView(maskbuffer.data(),
                                          maskbuffer.size() * sizeof(uint8_t)),
                  "Send y_mask");
 }
 
-std::vector<size_t> EcdhPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
+std::vector<size_t> EcdhPsiRecv(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                                 std::vector<std::string>& y, size_t size_x) {
   EcdhPsi bob;
   std::vector<yc::EcPoint> y_points(y.size());
   // y_points = H(y) ^ {bob_sk}
-  bob.MaskStrings(absl::MakeSpan(y), absl::MakeSpan(y_points));
+  bob.MaskStrings(upsi_runtime::MakeSpan(y), upsi_runtime::MakeSpan(y_points));
   uint64_t max_point_length =
       bob.ec_->GetSerializeLength();  // 获取点的最大序列化长度
 
@@ -85,30 +84,30 @@ std::vector<size_t> EcdhPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
   std::vector<uint8_t> buffer(total_length_x);
   std::vector<yc::EcPoint> x_points(size_x);
   auto bufxpoints = ctx->Recv(ctx->PrevRank(), "Receive H(id)^a");
-  YACL_ENFORCE(bufxpoints.size() == int64_t(total_length_x * sizeof(uint8_t)));
+  UPSI_ENFORCE(bufxpoints.size() == int64_t(total_length_x * sizeof(uint8_t)));
   std::memcpy(buffer.data(), bufxpoints.data(), bufxpoints.size());
-  bob.BuffertoPoints(absl::MakeSpan(x_points), absl::MakeSpan(buffer));
+  bob.BuffertoPoints(upsi_runtime::MakeSpan(x_points), upsi_runtime::MakeSpan(buffer));
 
   // Send H(id)^b
   uint64_t total_length_y = y.size() * max_point_length;
   std::vector<uint8_t> ybuffer(total_length_y);
-  bob.PointstoBuffer(absl::MakeSpan(y_points), absl::MakeSpan(ybuffer));
+  bob.PointstoBuffer(upsi_runtime::MakeSpan(y_points), upsi_runtime::MakeSpan(ybuffer));
   ctx->SendAsync(
       ctx->NextRank(),
-      yacl::ByteContainerView(ybuffer.data(), total_length_y * sizeof(uint8_t)),
+      upsi_runtime::ByteContainerView(ybuffer.data(), total_length_y * sizeof(uint8_t)),
       "Send H(id)^b");
 
   std::vector<std::string> x_str(size_x);
   // x_str = x_points ^ {bob_sk}
-  bob.MaskEcPointsD(absl::MakeSpan(x_points), absl::MakeSpan(x_str));
+  bob.MaskEcPointsD(upsi_runtime::MakeSpan(x_points), upsi_runtime::MakeSpan(x_str));
 
   std::vector<std::string> y_str(y.size());
 
   auto bufy_str = ctx->Recv(ctx->PrevRank(), "Receive y_str");
-  YACL_ENFORCE(bufy_str.size() == int64_t(total_length_y * sizeof(uint8_t)));
+  UPSI_ENFORCE(bufy_str.size() == int64_t(total_length_y * sizeof(uint8_t)));
   std::vector<uint8_t> maskbuffer(total_length_y);
   std::memcpy(maskbuffer.data(), bufy_str.data(), bufy_str.size());
-  yacl::parallel_for(0, y.size(), [&](size_t begin, size_t end) {
+  upsi_runtime::parallel_for(0, y.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       uint64_t offset = idx * max_point_length;
       y_str[idx] =
@@ -120,40 +119,40 @@ std::vector<size_t> EcdhPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
   return z;
 }
 
-void EcdhPsi::MaskStrings(absl::Span<std::string> in,
-                          absl::Span<yc::EcPoint> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhPsi::MaskStrings(upsi_runtime::Span<std::string> in,
+                          upsi_runtime::Span<yc::EcPoint> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
-      out[idx] = ec_->HashToCurve(yc::HashToCurveStrategy::Autonomous, in[idx]);
+      out[idx] = ec_->HashToCurve(in[idx]);
       ec_->MulInplace(&out[idx], sk_);
     }
   });
 }
 
-void EcdhPsi::MaskEcPoints(absl::Span<yc::EcPoint> in,
-                           absl::Span<yc::EcPoint> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhPsi::MaskEcPoints(upsi_runtime::Span<yc::EcPoint> in,
+                           upsi_runtime::Span<yc::EcPoint> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       out[idx] = ec_->Mul(in[idx], sk_);
     }
   });
 }
 
-void EcdhPsi::MaskEcPointsD(absl::Span<yc::EcPoint> in,
-                            absl::Span<std::string> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhPsi::MaskEcPointsD(upsi_runtime::Span<yc::EcPoint> in,
+                            upsi_runtime::Span<std::string> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       out[idx] = ec_->SerializePoint(ec_->Mul(in[idx], sk_));
     }
   });
 }
 
-void EcdhPsi::PointstoBuffer(absl::Span<yc::EcPoint> in,
-                             absl::Span<std::uint8_t> buffer) {
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhPsi::PointstoBuffer(upsi_runtime::Span<yc::EcPoint> in,
+                             upsi_runtime::Span<std::uint8_t> buffer) {
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       uint64_t offset = idx * 32;
       ec_->SerializePoint(in[idx], buffer.data() + offset, 32);
@@ -161,13 +160,13 @@ void EcdhPsi::PointstoBuffer(absl::Span<yc::EcPoint> in,
   });
 }
 
-void EcdhPsi::BuffertoPoints(absl::Span<yc::EcPoint> in,
-                             absl::Span<std::uint8_t> buffer) {
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhPsi::BuffertoPoints(upsi_runtime::Span<yc::EcPoint> in,
+                             upsi_runtime::Span<std::uint8_t> buffer) {
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       uint64_t offset = idx * 32;
       in[idx] =
-          ec_->DeserializePoint(absl::MakeSpan(buffer.data() + offset, 32));
+          ec_->DeserializePoint(upsi_runtime::MakeSpan(buffer.data() + offset, 32));
     }
   });
 }

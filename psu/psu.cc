@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "examples/upsi/psu/psu.h"
+#include "psu/psu.h"
 
 #include <atomic>
 #include <memory>
 #include <vector>
 
-#include "yacl/base/exception.h"
+#include "runtime/types.h"
 
 namespace {
 
@@ -43,7 +43,7 @@ PsuProtocol GetDefaultPsuProtocol() {
 }
 
 std::vector<uint128_t> PsuSend(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes) {
   switch (GetDefaultPsuProtocol()) {
     case PsuProtocol::kIblt:
@@ -59,11 +59,11 @@ std::vector<uint128_t> PsuSend(
       break;
 #endif
   }
-  YACL_THROW("selected PSU protocol is not linked into this target");
+  UPSI_THROW("selected PSU protocol is not linked into this target");
 }
 
 std::vector<uint128_t> PsuRecv(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     const std::vector<uint128_t>& elem_hashes) {
   switch (GetDefaultPsuProtocol()) {
     case PsuProtocol::kIblt:
@@ -79,5 +79,5 @@ std::vector<uint128_t> PsuRecv(
       break;
 #endif
   }
-  YACL_THROW("selected PSU protocol is not linked into this target");
+  UPSI_THROW("selected PSU protocol is not linked into this target");
 }

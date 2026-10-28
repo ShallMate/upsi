@@ -3,12 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+REPO_ROOT="${SCRIPT_DIR}"
 NETWORK_SETUP="${SCRIPT_DIR}/network_setup.sh"
 DEFAULT_OUTPUT_ROOT="${SCRIPT_DIR}/benchmark_logs"
 DEFAULT_REPEATS=5
 DEFAULT_UPDATE_COUNT=1
-DEFAULT_LINK_BACKEND=brpc
+DEFAULT_LINK_BACKEND=tcp
 
 declare -a DEFAULT_BACKENDS=("krtw" "iblt")
 declare -a DEFAULT_SCENARIOS=("LAN" "WAN_200Mbps" "WAN_50Mbps" "WAN_5Mbps")
@@ -40,11 +40,11 @@ Usage: $(basename "$0") [options]
 Options:
   --repeats=N              Number of runs per backend/scenario pair.
   --update-count=N         Number of UPSI update rounds per binary run.
-  --link=brpc|memory       Link backend used by the UPSI binary.
+  --link=tcp       Link backend used by the UPSI binary.
   --backends=a,b           Comma-separated backends: krtw,iblt.
   --scenarios=a,b          Comma-separated scenarios: LAN,WAN_200Mbps,WAN_50Mbps,WAN_5Mbps.
   --output-dir=PATH        Output directory for logs and summary files.
-  --skip-build             Reuse the existing bazel binary without rebuilding.
+  --skip-build             Reuse the existing CMake binary without rebuilding.
   --help                   Show this help.
 
 Examples:
@@ -99,8 +99,8 @@ validate_inputs() {
     exit 1
   fi
 
-  if [[ "${LINK_BACKEND}" != "brpc" && "${LINK_BACKEND}" != "memory" ]]; then
-    echo "--link must be brpc or memory" >&2
+  if [[ "${LINK_BACKEND}" != "tcp" ]]; then
+    echo "--link must be tcp" >&2
     exit 1
   fi
 }
@@ -191,8 +191,8 @@ build_binary() {
   if [[ "${SKIP_BUILD}" -eq 1 ]]; then
     return
   fi
-  log_msg "Building //examples/upsi:upsi"
-  (cd "${REPO_ROOT}" && bazel build //examples/upsi:upsi) >>"${EXEC_LOG}" 2>&1
+  log_msg "Building upsi"
+  (cd "${REPO_ROOT}" && cmake --preset default && cmake --build build --target upsi -j "${JOBS:-8}") >>"${EXEC_LOG}" 2>&1
 }
 
 extract_metric() {
@@ -303,7 +303,7 @@ run_single_benchmark() {
   (
     cd "${REPO_ROOT}" &&
       UPSI_PSU_BACKEND="${backend}" \
-        bazel-bin/examples/upsi/upsi \
+        build/bin/upsi \
           --update-count="${UPDATE_COUNT}" \
           --link="${LINK_BACKEND}"
   ) >"${log_file}" 2>&1

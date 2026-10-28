@@ -12,24 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "examples/upsi/ecdhpsi/receiver.h"
+#include "ecdhpsi/receiver.h"
 
 #include <cstdint>
 #include <memory>
 #include <vector>
 
-#include "examples/upsi/ecdhpsi/sender.h"
-#include "yacl/base/int128.h"
-#include "yacl/crypto/ecc/ec_point.h"
-#include "yacl/crypto/ecc/ecc_spi.h"
-#include "yacl/link/link.h"
-#include "yacl/utils/parallel.h"
+#include "ecdhpsi/sender.h"
+#include "runtime/types.h"
+#include "runtime/link.h"
 
 std::vector<uint128_t> GetIntersection(std::vector<uint32_t> z,
                                        std::vector<uint128_t> y,
                                        uint32_t z_size) {
   std::vector<uint128_t> intersection(z_size);
-  yacl::parallel_for(0, z_size, [&](size_t begin, size_t end) {
+  upsi_runtime::parallel_for(0, z_size, [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       intersection[idx] = y[z[idx]];
     }
@@ -40,7 +37,7 @@ std::vector<uint128_t> GetIntersection(std::vector<uint32_t> z,
 std::vector<uint32_t> ConvertToUint32Vector(const std::vector<uint8_t>& input,
                                             uint32_t z_size) {
   std::vector<uint32_t> z(z_size);
-  yacl::parallel_for(0, z_size, [&](size_t begin, size_t end) {
+  upsi_runtime::parallel_for(0, z_size, [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       auto index = idx * 4;
       z[idx] = static_cast<uint32_t>(input[index]) |
@@ -52,62 +49,62 @@ std::vector<uint32_t> ConvertToUint32Vector(const std::vector<uint8_t>& input,
   return z;
 }
 
-void EcdhReceiver::MaskStrings(absl::Span<std::string> in,
-                               absl::Span<yc::EcPoint> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhReceiver::MaskStrings(upsi_runtime::Span<std::string> in,
+                               upsi_runtime::Span<yc::EcPoint> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
-      out[idx] = ec_->HashToCurve(yc::HashToCurveStrategy::Autonomous, in[idx]);
+      out[idx] = ec_->HashToCurve(in[idx]);
       ec_->MulInplace(&out[idx], sk_);
     }
   });
 }
 
-void EcdhReceiver::MaskInputs(absl::Span<uint128_t> in,
-                              absl::Span<yc::EcPoint> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhReceiver::MaskInputs(upsi_runtime::Span<uint128_t> in,
+                              upsi_runtime::Span<yc::EcPoint> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
-      out[idx] = ec_->HashToCurve(yc::HashToCurveStrategy::Autonomous,
+      out[idx] = ec_->HashToCurve(
                                   uint128_to_string(in[idx]));
       ec_->MulInplace(&out[idx], sk_);
     }
   });
 }
 
-void EcdhReceiver::MaskEcPoints(absl::Span<yc::EcPoint> in,
-                                absl::Span<yc::EcPoint> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhReceiver::MaskEcPoints(upsi_runtime::Span<yc::EcPoint> in,
+                                upsi_runtime::Span<yc::EcPoint> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       out[idx] = ec_->Mul(in[idx], sk_);
     }
   });
 }
 
-void EcdhReceiver::MaskEcPointsInv(absl::Span<yc::EcPoint> in,
-                                   absl::Span<yc::EcPoint> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhReceiver::MaskEcPointsInv(upsi_runtime::Span<yc::EcPoint> in,
+                                   upsi_runtime::Span<yc::EcPoint> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       out[idx] = ec_->Mul(in[idx], skinv_);
     }
   });
 }
 
-void EcdhReceiver::MaskEcPointsD(absl::Span<yc::EcPoint> in,
-                                 absl::Span<std::string> out) {
-  YACL_ENFORCE(in.size() == out.size());
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhReceiver::MaskEcPointsD(upsi_runtime::Span<yc::EcPoint> in,
+                                 upsi_runtime::Span<std::string> out) {
+  UPSI_ENFORCE(in.size() == out.size());
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       out[idx] = ec_->SerializePoint(ec_->Mul(in[idx], sk_));
     }
   });
 }
 
-void EcdhReceiver::PointstoBuffer(absl::Span<yc::EcPoint> in,
-                                  absl::Span<std::uint8_t> buffer) {
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhReceiver::PointstoBuffer(upsi_runtime::Span<yc::EcPoint> in,
+                                  upsi_runtime::Span<std::uint8_t> buffer) {
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       uint64_t offset = idx * 32;
       ec_->SerializePoint(in[idx], buffer.data() + offset, 32);
@@ -115,49 +112,49 @@ void EcdhReceiver::PointstoBuffer(absl::Span<yc::EcPoint> in,
   });
 }
 
-void EcdhReceiver::BuffertoPoints(absl::Span<yc::EcPoint> in,
-                                  absl::Span<std::uint8_t> buffer) {
-  yacl::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
+void EcdhReceiver::BuffertoPoints(upsi_runtime::Span<yc::EcPoint> in,
+                                  upsi_runtime::Span<std::uint8_t> buffer) {
+  upsi_runtime::parallel_for(0, in.size(), [&](size_t begin, size_t end) {
     for (size_t idx = begin; idx < end; ++idx) {
       uint64_t offset = idx * 32;
       in[idx] =
-          ec_->DeserializePoint(absl::MakeSpan(buffer.data() + offset, 32));
+          ec_->DeserializePoint(upsi_runtime::MakeSpan(buffer.data() + offset, 32));
     }
   });
 }
 
 std::vector<uint128_t> EcdhReceiver::EcdhPsiRecv(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     std::vector<uint128_t>& y) {
   std::vector<yc::EcPoint> y_points(y.size());
 
   // y_points = H(y) ^ {bob_sk}
-  MaskInputs(absl::MakeSpan(y), absl::MakeSpan(y_points));
+  MaskInputs(upsi_runtime::MakeSpan(y), upsi_runtime::MakeSpan(y_points));
 
   // Send H(id)^b
   uint64_t total_length_y = y.size() * 32;
   std::vector<uint8_t> ybuffer(total_length_y);
-  PointstoBuffer(absl::MakeSpan(y_points), absl::MakeSpan(ybuffer));
+  PointstoBuffer(upsi_runtime::MakeSpan(y_points), upsi_runtime::MakeSpan(ybuffer));
   ctx->SendAsync(
       ctx->NextRank(),
-      yacl::ByteContainerView(ybuffer.data(), total_length_y * sizeof(uint8_t)),
+      upsi_runtime::ByteContainerView(ybuffer.data(), total_length_y * sizeof(uint8_t)),
       "Send H(id)^b");
 
   // Receive H(id)^ab
   auto bufypoints = ctx->Recv(ctx->PrevRank(), "Receive y_mask");
-  YACL_ENFORCE(bufypoints.size() == int64_t(total_length_y * sizeof(uint8_t)));
+  UPSI_ENFORCE(bufypoints.size() == int64_t(total_length_y * sizeof(uint8_t)));
   std::memcpy(ybuffer.data(), bufypoints.data(), bufypoints.size());
-  BuffertoPoints(absl::MakeSpan(y_points), absl::MakeSpan(ybuffer));
+  BuffertoPoints(upsi_runtime::MakeSpan(y_points), upsi_runtime::MakeSpan(ybuffer));
 
   std::vector<yc::EcPoint> maskpoints(y.size());
-  MaskEcPointsInv(absl::MakeSpan(y_points), absl::MakeSpan(maskpoints));
-  PointstoBuffer(absl::MakeSpan(maskpoints), absl::MakeSpan(ybuffer));
+  MaskEcPointsInv(upsi_runtime::MakeSpan(y_points), upsi_runtime::MakeSpan(maskpoints));
+  PointstoBuffer(upsi_runtime::MakeSpan(maskpoints), upsi_runtime::MakeSpan(ybuffer));
   ctx->SendAsync(
       ctx->NextRank(),
-      yacl::ByteContainerView(ybuffer.data(), total_length_y * sizeof(uint8_t)),
+      upsi_runtime::ByteContainerView(ybuffer.data(), total_length_y * sizeof(uint8_t)),
       "Send H(id)^a");
 
-  yacl::Buffer size_data = ctx->Recv(ctx->PrevRank(), "intersection size");
+  upsi_runtime::Buffer size_data = ctx->Recv(ctx->PrevRank(), "intersection size");
 
   uint32_t z_size = *reinterpret_cast<uint32_t*>(size_data.data());
   auto index_data = ctx->Recv(ctx->PrevRank(), "intersection index");

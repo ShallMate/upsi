@@ -18,22 +18,22 @@
 #include <set>
 #include <vector>
 
-#include "examples/upsi/aPSI.h"
-#include "examples/upsi/ecdhpsi/receiver.h"
-#include "examples/upsi/ecdhpsi/sender.h"
-#include "examples/upsi/rr22/okvs/baxos.h"
-#include "yacl/base/int128.h"
-#include "yacl/link/context.h"
+#include "aPSI.h"
+#include "ecdhpsi/receiver.h"
+#include "ecdhpsi/sender.h"
+#include "rr22/okvs/baxos.h"
+#include "runtime/types.h"
+#include "runtime/link.h"
 
 std::vector<uint128_t> BasePsiRecv(
-    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& x,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx, std::vector<uint128_t>& x,
     okvs::Baxos baxos);
 
 std::vector<uint128_t> BasePsiSend(
-    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& y,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx, std::vector<uint128_t>& y,
     okvs::Baxos baxos);
 
-std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
+std::vector<uint128_t> UPsiRecv(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                                 std::vector<uint128_t>& x,
                                 std::vector<uint128_t>& xadd,
                                 std::vector<uint128_t>& xsub,
@@ -41,7 +41,7 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
                                 EcdhSender& yaddsender,
                                 std::set<uint128_t> intersection_receiver);
 
-std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
+std::vector<uint128_t> UPsiSend(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                                 std::vector<uint128_t>& y,
                                 std::vector<uint128_t>& yadd,
                                 std::vector<uint128_t>& ysub,
@@ -50,11 +50,11 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
                                 std::set<uint128_t> intersection_sender);
 
 std::vector<uint128_t> UPsiRecvV1(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     std::vector<uint128_t>& xadd, std::vector<uint128_t>& xsub,
     APSI& instance_x, std::set<uint128_t> intersection_receiver);
 
 std::vector<uint128_t> UPsiSendV1(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     std::vector<uint128_t>& yadd, std::vector<uint128_t>& ysub,
     APSI& instance_y, std::set<uint128_t> intersection_sender);

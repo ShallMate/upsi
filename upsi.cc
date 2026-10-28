@@ -12,41 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "examples/upsi/upsi.h"
+#include "upsi.h"
 
 #include <cstdint>
 #include <future>
 #include <vector>
 
-#include "examples/upsi/ecdhpsi/receiver.h"
-#include "examples/upsi/ecdhpsi/sender.h"
-#include "examples/upsi/psu/psu.h"
-#include "examples/upsi/rr22/okvs/baxos.h"
-#include "examples/upsi/rr22/rr22.h"
+#include "ecdhpsi/receiver.h"
+#include "ecdhpsi/sender.h"
+#include "psu/psu.h"
+#include "rr22/okvs/baxos.h"
+#include "rr22/rr22.h"
 
 using namespace std;
 
 std::vector<uint128_t> BasePsiRecv(
-    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& x,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx, std::vector<uint128_t>& x,
     okvs::Baxos baxos) {
   return rr22::RR22PsiRecv(ctx, x, baxos);
 }
 
 std::vector<uint128_t> BasePsiSend(
-    const std::shared_ptr<yacl::link::Context>& ctx, std::vector<uint128_t>& y,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx, std::vector<uint128_t>& y,
     okvs::Baxos baxos) {
   return rr22::RR22PsiSend(ctx, y, baxos);
 }
 
-std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
+std::vector<uint128_t> UPsiRecv(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                                 std::vector<uint128_t>& x,
                                 std::vector<uint128_t>& xadd,
                                 std::vector<uint128_t>& xsub,
                                 EcdhReceiver& xaddreceiver,
                                 EcdhSender& yaddsender,
                                 std::set<uint128_t> intersection_receiver) {
-  yaddsender.UpdatePRFs(absl::MakeSpan(xadd));
-  yaddsender.DeletePRFs(absl::MakeSpan(xsub));
+  yaddsender.UpdatePRFs(upsi_runtime::MakeSpan(xadd));
+  yaddsender.DeletePRFs(upsi_runtime::MakeSpan(xsub));
   // cout << ctx->GetStats()->recv_bytes << endl;
   // cout << ctx->GetStats()->sent_bytes << endl;
   uint32_t xadd_size = xadd.size();
@@ -54,7 +54,7 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
       reinterpret_cast<uint8_t*>(&xadd_size),
       reinterpret_cast<uint8_t*>(&xadd_size) + sizeof(xadd_size));
   ctx->SendAsync(ctx->NextRank(), size_data, "xadd_size");
-  yacl::Buffer size_data_yadd = ctx->Recv(ctx->PrevRank(), "yadd size");
+  upsi_runtime::Buffer size_data_yadd = ctx->Recv(ctx->PrevRank(), "yadd size");
   uint32_t yadd_size = *reinterpret_cast<uint32_t*>(size_data_yadd.data());
   // cout << "yadd_size = " << yadd_size << endl;
   yaddsender.EcdhPsiSend(ctx, yadd_size);
@@ -89,21 +89,21 @@ std::vector<uint128_t> UPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
   return psi_result;
 }
 
-std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
+std::vector<uint128_t> UPsiSend(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                                 std::vector<uint128_t>& y,
                                 std::vector<uint128_t>& yadd,
                                 std::vector<uint128_t>& ysub,
                                 EcdhReceiver& yaddreceiver,
                                 EcdhSender& xaddsender,
                                 std::set<uint128_t> intersection_sender) {
-  xaddsender.UpdatePRFs(absl::MakeSpan(yadd));
-  xaddsender.DeletePRFs(absl::MakeSpan(ysub));
+  xaddsender.UpdatePRFs(upsi_runtime::MakeSpan(yadd));
+  xaddsender.DeletePRFs(upsi_runtime::MakeSpan(ysub));
   uint32_t yadd_size = yadd.size();
   std::vector<uint8_t> size_data(
       reinterpret_cast<uint8_t*>(&yadd_size),
       reinterpret_cast<uint8_t*>(&yadd_size) + sizeof(yadd_size));
   ctx->SendAsync(ctx->NextRank(), size_data, "yadd_size");
-  yacl::Buffer size_data_xadd = ctx->Recv(ctx->PrevRank(), "xadd size");
+  upsi_runtime::Buffer size_data_xadd = ctx->Recv(ctx->PrevRank(), "xadd size");
   uint32_t xadd_size = *reinterpret_cast<uint32_t*>(size_data_xadd.data());
   std::vector<uint128_t> v = yaddreceiver.EcdhPsiRecv(ctx, yadd);
   // cout << "v = " << v.size() << endl;
@@ -137,7 +137,7 @@ std::vector<uint128_t> UPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
 }
 
 std::vector<uint128_t> UPsiRecvV1(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     std::vector<uint128_t>& xadd, std::vector<uint128_t>& xsub,
     APSI& instance_x, std::set<uint128_t> intersection_receiver) {
   std::vector<uint128_t> t = instance_x.APsiRun(xadd);
@@ -172,7 +172,7 @@ std::vector<uint128_t> UPsiRecvV1(
 }
 
 std::vector<uint128_t> UPsiSendV1(
-    const std::shared_ptr<yacl::link::Context>& ctx,
+    const std::shared_ptr<upsi_runtime::link::Context>& ctx,
     std::vector<uint128_t>& yadd, std::vector<uint128_t>& ysub,
     APSI& instance_y, std::set<uint128_t> intersection_sender) {
   std::vector<uint128_t> v = instance_y.APsiRun(yadd);

@@ -25,15 +25,15 @@
 #include <apsi/network/channel.h>
 #include <apsi/network/stream_channel.h>
 
-#include "yacl/link/context.h"
+#include "runtime/link.h"
 
 namespace apsi::network {
 
-// Bridge APSI's Channel API onto yacl::link::Context so APSI traffic follows
-// the same BRPC/localhost path as the rest of the protocol.
-class YaclLinkChannel final : public Channel {
+// Bridge APSI's Channel API onto upsi_runtime::link::Context so APSI traffic follows
+// the same coproto socket as the rest of the protocol.
+class CoprotoChannel final : public Channel {
  public:
-  YaclLinkChannel(std::shared_ptr<yacl::link::Context> ctx, size_t peer_rank)
+  CoprotoChannel(std::shared_ptr<upsi_runtime::link::Context> ctx, size_t peer_rank)
       : ctx_(std::move(ctx)), peer_rank_(peer_rank) {}
 
   void send(std::unique_ptr<SenderOperation> sop) override {
@@ -79,6 +79,14 @@ class YaclLinkChannel final : public Channel {
         });
   }
 
+  std::unique_ptr<ResultPackage> receive_result_for(
+      std::shared_ptr<seal::SEALContext> context, const PSIParams& params) override {
+    return ReceivePayload<std::unique_ptr<ResultPackage>>(
+        "result", result_recv_count_, [&](StreamChannel& channel) {
+          return channel.receive_result_for(std::move(context), params);
+        });
+  }
+
  private:
   template <typename Fn>
   void SendPayload(std::string_view kind, uint64_t& counter, Fn&& fn) {
@@ -91,7 +99,7 @@ class YaclLinkChannel final : public Channel {
     const std::string payload = stream.str();
     bytes_sent_.fetch_add(payload.size(), std::memory_order_relaxed);
     ctx_->Send(peer_rank_,
-               yacl::ByteContainerView(payload.data(), payload.size()),
+               upsi_runtime::ByteContainerView(payload.data(), payload.size()),
                MakeTag(kind, current));
   }
 
@@ -102,14 +110,16 @@ class YaclLinkChannel final : public Channel {
 
     std::stringstream stream(std::string(buffer.data<char>(), buffer.size()));
     StreamChannel channel(stream);
-    return fn(channel);
+    auto result = fn(channel);
+    if (!result) throw std::runtime_error("APSI rejected a received message");
+    return result;
   }
 
   std::string MakeTag(std::string_view kind, uint64_t counter) const {
     return "apsi_" + std::string(kind) + "_" + std::to_string(counter);
   }
 
-  std::shared_ptr<yacl::link::Context> ctx_;
+  std::shared_ptr<upsi_runtime::link::Context> ctx_;
   size_t peer_rank_;
   std::mutex send_mu_;
   uint64_t request_send_count_ = 0;

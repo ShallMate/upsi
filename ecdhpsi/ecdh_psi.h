@@ -17,44 +17,41 @@
 #include <memory>
 #include <vector>
 
-#include "yacl/crypto/ecc/ec_point.h"
-#include "yacl/crypto/ecc/ecc_spi.h"
-#include "yacl/link/link.h"
-#include "yacl/utils/parallel.h"
+#include "runtime/curve.h"
+#include "runtime/link.h"
 
-namespace yc = yacl::crypto;
+namespace yc = upsi_runtime::crypto;
 
 class EcdhPsi {
  public:
   EcdhPsi() {
-    // Use FourQ curve
-    ec_ = yc::EcGroupFactory::Instance().Create(/* curve name */ "FourQ");
+    ec_ = std::make_shared<yc::EcGroup>();
 
     // Generate random key
-    yc::MPInt::RandomLtN(ec_->GetOrder(), &sk_);
+    sk_ = yc::RandomScalar();
   }
 
   // Mask input strings with secret key, and outputs the EcPoint results
-  void MaskStrings(absl::Span<std::string> in, absl::Span<yc::EcPoint> out);
+  void MaskStrings(upsi_runtime::Span<std::string> in, upsi_runtime::Span<yc::EcPoint> out);
 
-  void MaskEcPoints(absl::Span<yc::EcPoint> in, absl::Span<yc::EcPoint> out);
+  void MaskEcPoints(upsi_runtime::Span<yc::EcPoint> in, upsi_runtime::Span<yc::EcPoint> out);
 
-  void MaskEcPointsD(absl::Span<yc::EcPoint> in, absl::Span<std::string> out);
+  void MaskEcPointsD(upsi_runtime::Span<yc::EcPoint> in, upsi_runtime::Span<std::string> out);
 
-  void PointstoBuffer(absl::Span<yc::EcPoint> in,
-                      absl::Span<std::uint8_t> buffer);
+  void PointstoBuffer(upsi_runtime::Span<yc::EcPoint> in,
+                      upsi_runtime::Span<std::uint8_t> buffer);
 
-  void BuffertoPoints(absl::Span<yc::EcPoint> in,
-                      absl::Span<std::uint8_t> buffer);
+  void BuffertoPoints(upsi_runtime::Span<yc::EcPoint> in,
+                      upsi_runtime::Span<std::uint8_t> buffer);
 
  private:
-  yc::MPInt sk_;  // secret key
+  yc::Scalar sk_;  // secret key
  public:
   std::shared_ptr<yc::EcGroup> ec_;  // ec group
 };
 
-std::vector<size_t> EcdhPsiRecv(const std::shared_ptr<yacl::link::Context>& ctx,
+std::vector<size_t> EcdhPsiRecv(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                                 std::vector<std::string>& y, size_t size_x);
 
-void EcdhPsiSend(const std::shared_ptr<yacl::link::Context>& ctx,
+void EcdhPsiSend(const std::shared_ptr<upsi_runtime::link::Context>& ctx,
                  std::vector<std::string>& x, size_t size_y);

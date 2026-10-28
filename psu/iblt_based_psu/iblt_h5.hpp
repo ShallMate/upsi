@@ -9,7 +9,7 @@
 #include "cryptoTools/Common/Defines.h"
 #include "cryptoTools/Common/block.h"
 #include "cryptoTools/Crypto/AES.h"
-#include "examples/upsi/psu/iblt_based_psu/unordered_dense_compat.h"
+#include "psu/iblt_based_psu/unordered_dense_compat.h"
 
 class iblt_5h {
  public:

@@ -1,4 +1,4 @@
-#include "examples/upsi/psu/psu.h"
+#include "psu/psu.h"
 
 #include <algorithm>
 #include <future>
@@ -6,8 +6,8 @@
 #include <set>
 #include <vector>
 
-#include "yacl/base/int128.h"
-#include "yacl/link/test_util.h"
+#include "runtime/types.h"
+#include "runtime/link.h"
 
 namespace {
 
@@ -16,7 +16,7 @@ std::vector<uint128_t> MakeItems(size_t begin, size_t size) {
   items.reserve(size);
   for (size_t i = 0; i < size; ++i) {
     const uint64_t value = static_cast<uint64_t>(begin + i);
-    items.push_back(yacl::MakeUint128(value ^ 0x9e3779b97f4a7c15ULL, value));
+    items.push_back(upsi_runtime::MakeUint128(value ^ 0x9e3779b97f4a7c15ULL, value));
   }
   return items;
 }
@@ -32,7 +32,7 @@ std::vector<uint128_t> SortedUnion(const std::vector<uint128_t>& lhs,
 
 int main() {
   constexpr size_t kSetSize = 128;
-  auto contexts = yacl::link::test::SetupWorld(2);
+  auto contexts = upsi_runtime::link::SetupTcpWorld(2);
   SetDefaultPsuProtocol(PsuProtocol::kIblt);
 
   auto sender_items = MakeItems(0, kSetSize);
