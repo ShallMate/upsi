@@ -34,6 +34,13 @@ party and 512 insertions/deletions per round.
 ./build/bin/upsi --help
 ```
 
+## Protocol update
+
+The protocol-level fix uses a PSU functionality that returns the union to both
+parties while hiding their exact input sizes. The current KRTW adapter provides
+the union to both parties, but its size exchange still reveals input counts;
+input-size hiding remains to be implemented.
+
 ## Acknowledgments
 
 We thank Peihan Miao for pointing out that the original PSU input-size leakage
